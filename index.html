@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ANIMEX — Trending Now</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #111118; --surface2: #1a1a24;
+      --accent: #e8365d; --accent2: #ff6b35; --gold: #f5c842;
+      --text: #f0eeff; --muted: #6b6b8a; --border: rgba(255,255,255,0.07);
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
+    @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+    @keyframes fadeUp  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(32px) scale(0.97)} to{opacity:1;transform:none} }
+    ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:var(--bg)} ::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px}
+    /* Header */
+    .header{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:64px;display:flex;align-items:center;justify-content:space-between;}
+    .logo{font-family:'Bebas Neue',cursive;font-size:2rem;letter-spacing:4px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .logo span{-webkit-text-fill-color:var(--text);}
+    .nav{display:flex;gap:2px;}
+    .nav-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.8rem;font-weight:500;letter-spacing:1px;text-transform:uppercase;padding:8px 16px;transition:color 0.2s;}
+    .nav-btn:hover{color:var(--text);}
+    .nav-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+    /* Hero */
+    .hero{padding:60px 40px 28px;position:relative;overflow:hidden;}
+    .hero-bg-text{position:absolute;right:-20px;top:0;font-family:'Bebas Neue',cursive;font-size:9rem;color:rgba(255,255,255,0.018);pointer-events:none;user-select:none;letter-spacing:12px;line-height:1;}
+    .hero-title{font-family:'Bebas Neue',cursive;font-size:clamp(3rem,8vw,6.5rem);line-height:0.9;letter-spacing:2px;margin-bottom:14px;}
+    .hero-title em{font-style:normal;-webkit-text-stroke:2px var(--accent);color:transparent;}
+    .hero-sub{color:var(--muted);font-size:0.9rem;font-weight:300;}
+    /* Controls */
+    .controls{padding:0 40px 32px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+    .search-wrap{position:relative;min-width:260px;max-width:460px;flex:1;}
+    .search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+    .search-input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:11px 16px 11px 42px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;transition:border-color 0.2s;caret-color:var(--accent);}
+    .search-input::placeholder{color:var(--muted);}
+    .search-input:focus{border-color:var(--accent);}
+    .genre-pills{display:flex;gap:8px;flex-wrap:wrap;}
+    .pill{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:100px;font-size:0.77rem;font-weight:500;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;font-family:'DM Sans',sans-serif;}
+    .pill:hover{border-color:var(--accent);color:var(--text);}
+    .pill.active{background:var(--accent);border-color:var(--accent);color:white;}
+    /* Grid */
+    .grid-wrap{padding:0 40px 80px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:22px;}
+    /* Card */
+    .card{border-radius:16px;overflow:hidden;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.3s,border-color 0.3s;}
+    .card:hover{transform:translateY(-8px) scale(1.02);box-shadow:0 24px 60px rgba(0,0,0,0.5),0 0 0 1px var(--accent);border-color:var(--accent);}
+    .card:hover .card-img{transform:scale(1.07);}
+    .card-img-wrap{position:relative;aspect-ratio:2/3;overflow:hidden;}
+    .card-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.5s;}
+    .card-no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;}
+    .rank-badge{position:absolute;top:10px;left:10px;font-family:'Bebas Neue',cursive;font-size:1.5rem;line-height:1;color:white;background:var(--accent);padding:4px 10px;border-radius:8px;z-index:2;}
+    .rank-badge.top3{background:var(--gold);color:#111;}
+    .score-badge{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);border:1px solid rgba(245,200,66,0.4);color:var(--gold);padding:4px 10px;border-radius:100px;font-size:0.78rem;font-weight:500;z-index:2;}
+    .card-gradient{position:absolute;bottom:0;left:0;right:0;height:60%;background:linear-gradient(to top,rgba(0,0,0,0.95),transparent);z-index:1;}
+    .card-body{padding:12px 14px;}
+    .card-title{font-weight:500;font-size:0.88rem;line-height:1.3;margin-bottom:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+    .card-meta{display:flex;gap:6px;flex-wrap:wrap;}
+    .tag{padding:3px 8px;border-radius:6px;font-size:0.7rem;}
+    .tag.accent{background:rgba(232,54,93,0.12);color:var(--accent);}
+    .tag.muted{background:var(--surface2);color:var(--muted);}
+    /* Skeleton */
+    .skeleton-card{border-radius:16px;overflow:hidden;background:var(--surface);border:1px solid var(--border);}
+    .skeleton-img{aspect-ratio:2/3;background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;}
+    .skeleton-line{height:14px;border-radius:4px;margin-bottom:8px;background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;}
+    .skeleton-line.short{width:60%;height:10px;}
+    /* Empty */
+    .empty{grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--muted);}
+    .empty span{font-size:3.5rem;display:block;margin-bottom:16px;}
+    .empty h3{font-family:'Bebas Neue',cursive;font-size:2rem;letter-spacing:2px;color:var(--text);margin-bottom:8px;}
+    .retry-btn{margin-top:16px;background:var(--accent);border:none;color:white;padding:10px 28px;border-radius:100px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.88rem;}
+    /* Load more */
+    .load-more-wrap{text-align:center;margin-top:52px;}
+    .load-more-btn{background:transparent;border:2px solid var(--accent);color:var(--accent);padding:13px 48px;border-radius:100px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:500;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.3s;}
+    .load-more-btn:hover{background:var(--accent);color:white;box-shadow:0 0 30px rgba(232,54,93,0.4);}
+    .loading-more{text-align:center;margin-top:40px;color:var(--muted);font-size:0.88rem;}
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(16px);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn 0.2s ease;}
+    .modal{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:24px;max-width:800px;width:100%;max-height:90vh;overflow-y:auto;position:relative;animation:slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+    .modal-banner{height:140px;overflow:hidden;border-radius:24px 24px 0 0;position:relative;}
+    .modal-banner img{width:100%;height:100%;object-fit:cover;}
+    .modal-banner-fade{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,var(--surface) 100%);}
+    .modal-close{position:absolute;top:16px;right:16px;width:36px;height:36px;background:rgba(26,26,36,0.95);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);border-radius:50%;color:var(--text);cursor:pointer;font-size:1rem;z-index:10;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
+    .modal-close:hover{background:var(--accent);}
+    .modal-inner{display:grid;grid-template-columns:200px 1fr;}
+    .modal-poster-wrap{padding:0 0 24px 24px;}
+    .modal-poster{width:100%;height:290px;object-fit:cover;display:block;border-radius:16px;border:2px solid rgba(255,255,255,0.08);box-shadow:0 8px 32px rgba(0,0,0,0.6);}
+    .modal-no-poster{width:100%;height:290px;background:var(--surface2);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:3rem;}
+    .modal-body{padding:24px 28px 28px;display:flex;flex-direction:column;gap:14px;}
+    .modal-title{font-family:'Bebas Neue',cursive;font-size:1.9rem;letter-spacing:1px;line-height:1.1;}
+    .modal-romaji{color:var(--muted);font-size:0.8rem;margin-top:-8px;}
+    .modal-genres{display:flex;gap:6px;flex-wrap:wrap;}
+    .genre-pill{background:rgba(232,54,93,0.12);border:1px solid rgba(232,54,93,0.25);color:var(--accent);padding:3px 12px;border-radius:100px;font-size:0.71rem;}
+    .modal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .stat-box{background:var(--surface2);border-radius:12px;padding:10px 12px;text-align:center;}
+    .stat-val{font-family:'Bebas Neue',cursive;font-size:1.4rem;letter-spacing:1px;line-height:1;}
+    .stat-val.gold{color:var(--gold);}
+    .stat-val.red{color:var(--accent);}
+    .stat-label{font-size:0.65rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px;}
+    .synopsis{color:#8888aa;font-size:0.84rem;line-height:1.75;font-weight:300;}
+    .synopsis.collapsed{overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;}
+    .read-more{background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.8rem;padding:0;margin-top:6px;font-family:'DM Sans',sans-serif;}
+    .modal-meta{display:flex;gap:6px;flex-wrap:wrap;}
+    @media(max-width:640px){
+      .header{padding:0 16px;}
+      .nav-btn{padding:8px 8px;font-size:0.68rem;}
+      .hero,.controls,.grid-wrap{padding-left:16px;padding-right:16px;}
+      .modal-inner{grid-template-columns:1fr;}
+      .modal-poster-wrap{padding:0 24px;}
+      .modal-poster,.modal-no-poster{height:200px;}
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const ANILIST = "https://graphql.anilist.co";
+    const TABS = [
+      { key: "trending", label: "🔥 Trending" },
+      { key: "top",      label: "⭐ Top Rated" },
+      { key: "airing",   label: "📡 Airing" },
+      { key: "upcoming", label: "🗓 Upcoming" },
+    ];
+    const GENRES = ["All","Action","Romance","Fantasy","Comedy","Drama","Sci-Fi","Horror","Sports","Mystery","Slice of Life","Thriller","Supernatural"];
+
+    function buildQuery(tab, search, page) {
+      const pp = 20;
+      if (search) return {
+        query: `query($s:String,$p:Int){Page(page:$p,perPage:${pp}){media(search:$s,type:ANIME,sort:POPULARITY_DESC){id title{romaji english}coverImage{large extraLarge color}bannerImage description genres averageScore episodes status format startDate{year season}studios(isMain:true){nodes{name}}popularity}}}`,
+        variables: { s: search, p: page }
+      };
+      const f = {
+        trending: "sort:TRENDING_DESC,type:ANIME",
+        top:      "sort:SCORE_DESC,type:ANIME",
+        airing:   "sort:POPULARITY_DESC,type:ANIME,status:RELEASING",
+        upcoming: "sort:POPULARITY_DESC,type:ANIME,status:NOT_YET_RELEASED",
+      };
+      return {
+        query: `query($p:Int){Page(page:$p,perPage:${pp}){media(${f[tab]}){id title{romaji english}coverImage{large extraLarge color}bannerImage description genres averageScore episodes status format startDate{year season}studios(isMain:true){nodes{name}}popularity}}}`,
+        variables: { p: page }
+      };
+    }
+
+    async function fetchAniList(body) {
+      const res = await fetch(ANILIST, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("API error");
+      const json = await res.json();
+      return json.data.Page.media || [];
+    }
+
+    function SkeletonCard() {
+      return (
+        <div className="skeleton-card">
+          <div className="skeleton-img" />
+          <div style={{padding:14}}>
+            <div className="skeleton-line" />
+            <div className="skeleton-line short" />
+          </div>
+        </div>
+      );
+    }
+
+    function AnimeCard({ anime, rank, onClick }) {
+      const title = anime.title?.english || anime.title?.romaji || "Unknown";
+      const img   = anime.coverImage?.extraLarge || anime.coverImage?.large || "";
+      const score = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : "N/A";
+      const eps   = anime.episodes ? `${anime.episodes} eps` : "Ongoing";
+      return (
+        <div className="card" onClick={() => onClick(anime)}>
+          <div className="card-img-wrap" style={{background: anime.coverImage?.color || "#1a1a24"}}>
+            {img ? <img src={img} alt={title} loading="lazy" className="card-img" /> : <div className="card-no-img">🎌</div>}
+            <div className={`rank-badge ${rank <= 3 ? "top3" : ""}`}>#{rank}</div>
+            <div className="score-badge">★ {score}</div>
+            <div className="card-gradient" />
+          </div>
+          <div className="card-body">
+            <div className="card-title">{title}</div>
+            <div className="card-meta">
+              <span className="tag accent">{anime.format || "TV"}</span>
+              <span className="tag muted">{eps}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Modal({ anime, onClose }) {
+      const title    = anime.title?.english || anime.title?.romaji || "Unknown";
+      const img      = anime.coverImage?.extraLarge || anime.coverImage?.large || "";
+      const score    = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : "N/A";
+      const synopsis = anime.description ? anime.description.replace(/<[^>]*>/g, "") : "No synopsis available.";
+      const studio   = anime.studios?.nodes?.[0]?.name;
+      const [expanded, setExpanded] = useState(false);
+
+      useEffect(() => {
+        const fn = (e) => { if (e.key === "Escape") onClose(); };
+        window.addEventListener("keydown", fn);
+        document.body.style.overflow = "hidden";
+        return () => { window.removeEventListener("keydown", fn); document.body.style.overflow = ""; };
+      }, [onClose]);
+
+      return (
+        <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+          <div className="modal">
+            {anime.bannerImage && (
+              <div className="modal-banner">
+                <img src={anime.bannerImage} alt="" />
+                <div className="modal-banner-fade" />
+              </div>
+            )}
+            <button className="modal-close" onClick={onClose}>✕</button>
+            <div className="modal-inner">
+              <div className="modal-poster-wrap" style={{marginTop: anime.bannerImage ? -50 : 0}}>
+                {img ? <img src={img} alt={title} className="modal-poster" /> : <div className="modal-no-poster">🎌</div>}
+              </div>
+              <div className="modal-body">
+                <div className="modal-title">{title}</div>
+                {anime.title?.romaji && anime.title?.english && anime.title.english !== anime.title.romaji && (
+                  <div className="modal-romaji">{anime.title.romaji}</div>
+                )}
+                <div className="modal-genres">
+                  {(anime.genres || []).slice(0, 6).map(g => <span key={g} className="genre-pill">{g}</span>)}
+                </div>
+                <div className="modal-stats">
+                  {[["Score","gold",score],["Episodes","red",anime.episodes||"?"],["Popularity","red",anime.popularity ? `${(anime.popularity/1000).toFixed(0)}k` : "—"]].map(([l,c,v]) => (
+                    <div key={l} className="stat-box">
+                      <div className={`stat-val ${c}`}>{v}</div>
+                      <div className="stat-label">{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <p className={`synopsis ${expanded ? "" : "collapsed"}`}>{synopsis}</p>
+                  {synopsis.length > 250 && (
+                    <button className="read-more" onClick={() => setExpanded(e => !e)}>
+                      {expanded ? "Read less ↑" : "Read more ↓"}
+                    </button>
+                  )}
+                </div>
+                <div className="modal-meta">
+                  {[anime.status, anime.format,
+                    anime.startDate?.year && `${anime.startDate.season ? anime.startDate.season.charAt(0)+anime.startDate.season.slice(1).toLowerCase() : ""} ${anime.startDate.year}`,
+                    studio
+                  ].filter(Boolean).map((v, i) => <span key={i} className="tag muted">{v}</span>)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [tab,      setTab]      = useState("trending");
+      const [genre,    setGenre]    = useState("All");
+      const [list,     setList]     = useState([]);
+      const [loading,  setLoading]  = useState(true);
+      const [page,     setPage]     = useState(1);
+      const [hasMore,  setHasMore]  = useState(true);
+      const [search,   setSearch]   = useState("");
+      const [selected, setSelected] = useState(null);
+      const [error,    setError]    = useState(false);
+      const debounce = useRef(null);
+
+      const load = async (t, s, p, append = false) => {
+        setLoading(true); setError(false);
+        try {
+          const items = await fetchAniList(buildQuery(t, s, p));
+          setList(prev => append ? [...prev, ...items] : items);
+          setHasMore(items.length === 20);
+          setPage(p);
+        } catch { setError(true); }
+        setLoading(false);
+      };
+
+      useEffect(() => { load(tab, "", 1); }, [tab]);
+
+      const onSearch = (q) => {
+        setSearch(q);
+        clearTimeout(debounce.current);
+        if (!q.trim()) { load(tab, "", 1); return; }
+        if (q.length < 2) return;
+        debounce.current = setTimeout(() => load(tab, q, 1), 600);
+      };
+
+      const filtered = genre === "All" ? list : list.filter(a => a.genres?.includes(genre));
+
+      return (
+        <div className="app">
+          {/* HEADER */}
+          <header className="header">
+            <div className="logo">ANIME<span>X</span></div>
+            <nav className="nav">
+              {TABS.map(t => (
+                <button key={t.key} className={`nav-btn ${tab === t.key ? "active" : ""}`}
+                  onClick={() => { setTab(t.key); setSearch(""); }}>
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          </header>
+
+          {/* HERO */}
+          <section className="hero">
+            <div className="hero-bg-text">TRENDING</div>
+            <h1 className="hero-title">What's <em>Hot</em><br/>Right Now</h1>
+            <p className="hero-sub">Live rankings powered by AniList · Updated daily</p>
+          </section>
+
+          {/* CONTROLS */}
+          <div className="controls">
+            <div className="search-wrap">
+              <svg className="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input className="search-input" value={search} onChange={e => onSearch(e.target.value)} placeholder="Search anime..." />
+            </div>
+            <div className="genre-pills">
+              {GENRES.map(g => (
+                <button key={g} className={`pill ${genre === g ? "active" : ""}`} onClick={() => setGenre(g)}>{g}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* GRID */}
+          <main className="grid-wrap">
+            {error ? (
+              <div className="empty">
+                <span>⚠️</span>
+                <h3>Failed to Load</h3>
+                <p>Could not reach the API.</p>
+                <button className="retry-btn" onClick={() => load(tab, search, 1)}>Retry</button>
+              </div>
+            ) : loading && list.length === 0 ? (
+              <div className="grid">{Array(16).fill(0).map((_, i) => <SkeletonCard key={i} />)}</div>
+            ) : filtered.length === 0 ? (
+              <div className="empty"><span>🎌</span><h3>No Results</h3><p>Try a different filter.</p></div>
+            ) : (
+              <div className="grid">
+                {filtered.map((a, i) => (
+                  <div key={a.id} style={{animation:`fadeUp 0.45s ease ${(i%20)*0.035}s both`}}>
+                    <AnimeCard anime={a} rank={i+1} onClick={setSelected} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {!loading && !error && hasMore && !search && filtered.length > 0 && (
+              <div className="load-more-wrap">
+                <button className="load-more-btn" onClick={() => load(tab, "", page+1, true)}>Load More</button>
+              </div>
+            )}
+            {loading && list.length > 0 && <p className="loading-more">Loading more…</p>}
+          </main>
+
+          {selected && <Modal anime={selected} onClose={() => setSelected(null)} />}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
