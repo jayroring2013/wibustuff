@@ -154,11 +154,13 @@
     async function fetchAniList(body) {
       const res = await fetch(ANILIST, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error("API error");
+      if (res.status === 429) throw new Error("rate_limited");
+      if (!res.ok) throw new Error("http_" + res.status);
       const json = await res.json();
+      if (json.errors) throw new Error(json.errors[0]?.message || "api_error");
       return json.data.Page.media || [];
     }
 
@@ -273,17 +275,17 @@
       const [hasMore,  setHasMore]  = useState(true);
       const [search,   setSearch]   = useState("");
       const [selected, setSelected] = useState(null);
-      const [error,    setError]    = useState(false);
+      const [error,    setError]    = useState(null);
       const debounce = useRef(null);
 
       const load = async (t, s, p, append = false) => {
-        setLoading(true); setError(false);
+        setLoading(true); setError(null);
         try {
           const items = await fetchAniList(buildQuery(t, s, p));
           setList(prev => append ? [...prev, ...items] : items);
           setHasMore(items.length === 20);
           setPage(p);
-        } catch { setError(true); }
+        } catch(e) { setError(e.message); }
         setLoading(false);
       };
 
@@ -294,7 +296,7 @@
         clearTimeout(debounce.current);
         if (!q.trim()) { load(tab, "", 1); return; }
         if (q.length < 2) return;
-        debounce.current = setTimeout(() => load(tab, q, 1), 600);
+        debounce.current = setTimeout(async () => load(tab, q, 1), 600);
       };
 
       const filtered = genre === "All" ? list : list.filter(a => a.genres?.includes(genre));
@@ -341,8 +343,13 @@
             {error ? (
               <div className="empty">
                 <span>⚠️</span>
-                <h3>Failed to Load</h3>
-                <p>Could not reach the API.</p>
+                <h3>{error === "rate_limited" ? "Rate Limited" : "Failed to Load"}</h3>
+                <p style={{marginBottom:8}}>
+                  {error === "rate_limited"
+                    ? "Too many requests. Please wait 1 minute and retry."
+                    : "Could not reach the AniList API."}
+                </p>
+                <p style={{fontSize:"0.75rem",color:"#555",marginBottom:16"}}>Error: {error}</p>
                 <button className="retry-btn" onClick={() => load(tab, search, 1)}>Retry</button>
               </div>
             ) : loading && list.length === 0 ? (
