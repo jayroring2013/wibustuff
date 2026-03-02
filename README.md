@@ -1,4 +1,4 @@
-# 🎌 AnimeTrend
+# 🎌 AnimeTrend — GitHub Pages Setup Guide
 
 Live anime rankings powered by the [Jikan API](https://jikan.moe/) (MyAnimeList).
 
