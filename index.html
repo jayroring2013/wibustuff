@@ -122,32 +122,10 @@ const statusColor = s => s==="completed"?"rgba(34,197,94,0.9)"
 
 // ── Novel Card ────────────────────────────────────────────────────────
 const NovelCard = ({series, rank, onClick}) => {
-  const [hovered,  setHovered]  = useState(false);
-  const [coverImg, setCoverImg] = useState(null);
-  
-  useEffect(()=>{
-    if (series.book?.image?.filename) {
-      setCoverImg(getImageUrl(series.book.image));
-    }
-  }, [series.id]);
-
-    // Otherwise fetch the full series detail to find a cover
-    fetch(`${API}/series/${series.id}`)
-      .then(r=>r.json())
-      .then(data=>{
-        // Go through all books and find the first one with an image
-        const allBooks = (data.books || [])
-          .filter(b => b.book_type === "main" && b.image)
-          .sort((a,b) => a.sort_order - b.sort_order);
-        if (allBooks.length > 0) {
-          // Pick last volume (max)
-          const lastBook = allBooks[allBooks.length - 1];
-          setCoverImg(getImageUrl(lastBook.image));
-        }
-      })
-      .catch(()=>{});
-  }, [series.id]);
-
+  const [hovered, setHovered] = useState(false);
+  const coverImg = series.book?.image?.filename
+    ? `https://images.ranobedb.org/${series.book.image.filename}`
+    : null;
   const volumes = series.c_num_books || parseInt(series.volumes?.count) || 0;
   const tags    = series.tags?.slice(0,1) || [];
 
