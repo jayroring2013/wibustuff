@@ -179,26 +179,37 @@ const NovelCard = ({series, rank, onClick}) => {
           </div>
         )}
         <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:14,color:"#fff",
-          lineHeight:1.2,marginBottom:5,
+          lineHeight:1.2,marginBottom:6,
           display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
           {series.title}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          {volumes>0&&(
-            <span style={{color:"#C4B5FD",fontSize:10}}>
-              📚 {volumes} vol{volumes!==1?"s":""}
-            </span>
-          )}
-          {series.c_start_date&&(
-            <span style={{color:"#64748B",fontSize:10}}>
-              {String(series.c_start_date).slice(0,4)}
-            </span>
-          )}
+
+        {/* Original run */}
+        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:3}}>
+          <span style={{color:"#64748B",fontSize:9,letterSpacing:1}}>RUN</span>
+          <span style={{color:"#94A3B8",fontSize:10}}>
+            {series.c_start_date ? String(series.c_start_date).slice(0,4) : "?"}
+            {" → "}
+            {!series.c_end_date||series.c_end_date===99999999
+              ? <span style={{color:"#4ADE80"}}>Present</span>
+              : String(series.c_end_date).slice(0,4)}
+          </span>
         </div>
+
+        {/* Volumes */}
+        {volumes>0&&(
+          <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:3}}>
+            <span style={{color:"#64748B",fontSize:9,letterSpacing:1}}>VOLS</span>
+            <span style={{color:"#C4B5FD",fontSize:10}}>
+              {volumes} volume{volumes!==1?"s":""}
+            </span>
+          </div>
+        )}
+
         {hovered&&series.description&&(
-          <div style={{marginTop:8,fontSize:10,color:"#cbd5e1",lineHeight:1.5,
+          <div style={{marginTop:6,fontSize:10,color:"#cbd5e1",lineHeight:1.5,
             display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
-            {series.description.slice(0,130)}...
+            {series.description.slice(0,120)}...
           </div>
         )}
       </div>
@@ -306,7 +317,7 @@ const Modal = ({series, onClose}) => {
               {[
                 {label:"VOLUMES",  value: d.c_num_books||series.volumes?.count||"?"},
                 {label:"START",    value: d.start_date  ? String(d.start_date).slice(0,4) : "?"},
-                {label:"END",      value: d.end_date    ? String(d.end_date).slice(0,4)   : "—"},
+                {label:"LATEST",   value: d.end_date&&d.end_date!==99999999 ? String(d.end_date).slice(0,4) : "Ongoing"},
                 {label:"LANGUAGE", value: (series.olang||"ja").toUpperCase()},
               ].map(({label,value})=>(
                 <div key={label} style={{textAlign:"center"}}>
@@ -315,6 +326,46 @@ const Modal = ({series, onClose}) => {
                 </div>
               ))}
             </div>
+
+            {/* Publishers */}
+            {detail?.publishers?.length>0&&(
+              <div style={{marginBottom:14}}>
+                <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:6}}>PUBLISHER</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {detail.publishers.map(p=>(
+                    <span key={p.id} style={{
+                      background:"rgba(139,92,246,0.1)",
+                      border:"1px solid rgba(139,92,246,0.25)",
+                      color:"#A78BFA",fontSize:11,
+                      padding:"3px 10px",borderRadius:20}}>
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Latest release */}
+            {detail?.books?.length>0&&(()=>{
+              const latest = [...detail.books]
+                .filter(b=>b.c_release_date&&b.c_release_date!==99999999)
+                .sort((a,b)=>b.c_release_date-a.c_release_date)[0];
+              return latest?(
+                <div style={{marginBottom:14}}>
+                  <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:6}}>LATEST RELEASE</div>
+                  <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",
+                    borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+                    <span style={{color:"#CBD5E1",fontSize:12,
+                      display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
+                      {latest.title}
+                    </span>
+                    <span style={{color:"#8B5CF6",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>
+                      {formatDate(latest.c_release_date)}
+                    </span>
+                  </div>
+                </div>
+              ):null;
+            })()}
 
             {/* Description */}
             {loadingDet?(
