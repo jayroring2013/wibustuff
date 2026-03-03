@@ -179,12 +179,10 @@ const NovelCard = ({series, rank, onClick}) => {
           </div>
         )}
         <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:14,color:"#fff",
-          lineHeight:1.2,marginBottom:6,
+          lineHeight:1.2,marginBottom:5,
           display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
           {series.title}
         </div>
-
-        {/* Original run */}
         <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:3}}>
           <span style={{color:"#64748B",fontSize:9,letterSpacing:1}}>RUN</span>
           <span style={{color:"#94A3B8",fontSize:10}}>
@@ -195,21 +193,17 @@ const NovelCard = ({series, rank, onClick}) => {
               : String(series.c_end_date).slice(0,4)}
           </span>
         </div>
-
-        {/* Volumes */}
         {volumes>0&&(
           <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:3}}>
             <span style={{color:"#64748B",fontSize:9,letterSpacing:1}}>VOLS</span>
-            <span style={{color:"#C4B5FD",fontSize:10}}>
-              {volumes} volume{volumes!==1?"s":""}
-            </span>
+            <span style={{color:"#C4B5FD",fontSize:10}}>{volumes} vol{volumes!==1?"s":""}</span>
           </div>
         )}
-
-        {hovered&&series.description&&(
-          <div style={{marginTop:6,fontSize:10,color:"#cbd5e1",lineHeight:1.5,
-            display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
-            {series.description.slice(0,120)}...
+        {series.description&&(
+          <div style={{marginTop:6,fontSize:10,color:"#94A3B8",lineHeight:1.5,
+            display:"-webkit-box",WebkitLineClamp:hovered?4:2,WebkitBoxOrient:"vertical",overflow:"hidden",
+            transition:"all 0.3s ease"}}>
+            {series.description}
           </div>
         )}
       </div>
@@ -220,9 +214,6 @@ const NovelCard = ({series, rank, onClick}) => {
 const Modal = ({series, onClose}) => {
   const [detail,     setDetail]     = useState(null);
   const [loadingDet, setLoadingDet] = useState(true);
-  const [userRating, setUserRating] = useState(0);
-  const [hoverStar,  setHoverStar]  = useState(0);
-  const [submitted,  setSubmitted]  = useState(false);
 
   useEffect(()=>{
     document.body.style.overflow="hidden";
@@ -317,7 +308,7 @@ const Modal = ({series, onClose}) => {
               {[
                 {label:"VOLUMES",  value: d.c_num_books||series.volumes?.count||"?"},
                 {label:"START",    value: d.start_date  ? String(d.start_date).slice(0,4) : "?"},
-                {label:"LATEST",   value: d.end_date&&d.end_date!==99999999 ? String(d.end_date).slice(0,4) : "Ongoing"},
+                {label:"END",      value: d.end_date    ? String(d.end_date).slice(0,4)   : "—"},
                 {label:"LANGUAGE", value: (series.olang||"ja").toUpperCase()},
               ].map(({label,value})=>(
                 <div key={label} style={{textAlign:"center"}}>
@@ -326,46 +317,6 @@ const Modal = ({series, onClose}) => {
                 </div>
               ))}
             </div>
-
-            {/* Publishers */}
-            {detail?.publishers?.length>0&&(
-              <div style={{marginBottom:14}}>
-                <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:6}}>PUBLISHER</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {detail.publishers.map(p=>(
-                    <span key={p.id} style={{
-                      background:"rgba(139,92,246,0.1)",
-                      border:"1px solid rgba(139,92,246,0.25)",
-                      color:"#A78BFA",fontSize:11,
-                      padding:"3px 10px",borderRadius:20}}>
-                      {p.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Latest release */}
-            {detail?.books?.length>0&&(()=>{
-              const latest = [...detail.books]
-                .filter(b=>b.c_release_date&&b.c_release_date!==99999999)
-                .sort((a,b)=>b.c_release_date-a.c_release_date)[0];
-              return latest?(
-                <div style={{marginBottom:14}}>
-                  <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:6}}>LATEST RELEASE</div>
-                  <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",
-                    borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
-                    <span style={{color:"#CBD5E1",fontSize:12,
-                      display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
-                      {latest.title}
-                    </span>
-                    <span style={{color:"#8B5CF6",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>
-                      {formatDate(latest.c_release_date)}
-                    </span>
-                  </div>
-                </div>
-              ):null;
-            })()}
 
             {/* Description */}
             {loadingDet?(
@@ -418,34 +369,7 @@ const Modal = ({series, onClose}) => {
               )}
             </div>
 
-            {/* Personal rating widget */}
-            <div style={{background:"rgba(255,255,255,0.04)",borderRadius:12,padding:14,
-              border:"1px solid rgba(255,255,255,0.07)"}}>
-              <div style={{color:"#64748B",fontSize:10,letterSpacing:2,marginBottom:10}}>YOUR RATING</div>
-              {submitted?(
-                <div style={{color:"#4ADE80",fontSize:13}}>You rated this {userRating}/10!</div>
-              ):(
-                <div>
-                  <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
-                    {[1,2,3,4,5,6,7,8,9,10].map(n=>(
-                      <button key={n}
-                        onMouseEnter={()=>setHoverStar(n)} onMouseLeave={()=>setHoverStar(0)}
-                        onClick={()=>setUserRating(n)}
-                        style={{width:30,height:30,borderRadius:7,border:"none",cursor:"pointer",
-                          background:n<=(hoverStar||userRating)?"#8B5CF6":"rgba(255,255,255,0.07)",
-                          color:"#fff",fontSize:11,fontWeight:700,
-                          transform:n<=(hoverStar||userRating)?"scale(1.15)":"scale(1)",
-                          transition:"all 0.15s ease"}}>{n}</button>
-                    ))}
-                  </div>
-                  <button onClick={()=>userRating>0&&setSubmitted(true)} style={{
-                    background:userRating>0?"#8B5CF6":"rgba(255,255,255,0.08)",
-                    color:"#fff",border:"none",borderRadius:8,
-                    padding:"7px 18px",cursor:userRating>0?"pointer":"default",
-                    fontSize:12,fontWeight:600}}>Submit</button>
-                </div>
-              )}
-            </div>
+
           </div>
         </div>
       </div>
