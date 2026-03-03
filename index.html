@@ -1,47 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AnimeTrend</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NovelTrend — Japanese Light Novel Rankings</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#060912;color:#fff;font-family:'Outfit',sans-serif}
+    body{background:#0a0a0f;color:#fff;font-family:'Outfit',sans-serif}
     ::-webkit-scrollbar{width:5px}
     ::-webkit-scrollbar-track{background:#0a0f1e}
-    ::-webkit-scrollbar-thumb{background:#EF4444;border-radius:3px}
+    ::-webkit-scrollbar-thumb{background:#8B5CF6;border-radius:3px}
     input::placeholder{color:#374151}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes slideUp{from{opacity:0;transform:translateY(40px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
     @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
     @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useEffect,useRef}=React;
+const {useState, useEffect, useRef} = React;
 
-const GENRES=[
-  {id:"all",label:"All"},{id:1,label:"Action"},{id:2,label:"Adventure"},
-  {id:4,label:"Comedy"},{id:8,label:"Drama"},{id:10,label:"Fantasy"},
-  {id:14,label:"Horror"},{id:22,label:"Romance"},{id:24,label:"Sci-Fi"},
-  {id:36,label:"Slice of Life"},{id:37,label:"Supernatural"},
-];
-const FILTERS=[
-  {id:"airing",label:"🔴 Airing Now"},
-  {id:"upcoming",label:"🟡 Upcoming"},
-  {id:"bypopularity",label:"🔥 Most Popular"},
-  {id:"favorite",label:"❤️ Most Favorited"},
+// RanobeDB public API — no auth, no backend needed
+const API = "https://ranobedb.org/api/v0";
+
+// Image CDN base
+const IMG = "https://ranobedb.org/image";
+
+// Sort options matching the API's sort param
+const SORTS = [
+  {id:"Title asc",         label:"🔤 Title A-Z"},
+  {id:"Title desc",        label:"🔤 Title Z-A"},
+  {id:"Start date desc",   label:"🆕 Newest"},
+  {id:"Start date asc",    label:"📅 Oldest"},
+  {id:"Num. books desc",   label:"📚 Most Volumes"},
+  {id:"Num. books asc",    label:"📖 Fewest Volumes"},
 ];
 
-const SkeletonCard=()=>(
+// Publication statuses
+const STATUSES = [
+  {id:"all",       label:"All"},
+  {id:"ongoing",   label:"Ongoing"},
+  {id:"completed", label:"Completed"},
+  {id:"hiatus",    label:"Hiatus"},
+  {id:"cancelled", label:"Cancelled"},
+];
+
+// Tag/genre IDs from RanobeDB — fetched dynamically but pre-seeded with common ones
+const PRESET_GENRES = [
+  {id:"all",  label:"All Genres"},
+  {id:1,      label:"Action"},
+  {id:2,      label:"Adventure"},
+  {id:3,      label:"Comedy"},
+  {id:4,      label:"Drama"},
+  {id:5,      label:"Fantasy"},
+  {id:6,      label:"Horror"},
+  {id:7,      label:"Mystery"},
+  {id:8,      label:"Romance"},
+  {id:9,      label:"Sci-Fi"},
+  {id:10,     label:"Slice of Life"},
+  {id:11,     label:"Supernatural"},
+  {id:12,     label:"Psychological"},
+  {id:13,     label:"Historical"},
+  {id:14,     label:"Tragedy"},
+  {id:15,     label:"Isekai"},
+  {id:16,     label:"Shounen"},
+  {id:17,     label:"Shoujo"},
+  {id:18,     label:"Seinen"},
+  {id:19,     label:"Josei"},
+];
+
+function getImageUrl(image) {
+  if (!image) return null;
+  return `${IMG}/${image.filename}`;
+}
+
+function formatDate(dateNum) {
+  if (!dateNum) return "Unknown";
+  const s = String(dateNum);
+  if (s.length === 8) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  if (s.length === 6) return `${s.slice(0,4)}-${s.slice(4,6)}`;
+  return s.slice(0,4);
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────
+const SkeletonCard = () => (
   <div style={{borderRadius:16,overflow:"hidden",background:"#111827",aspectRatio:"2/3"}}>
     <div style={{width:"100%",height:"100%",
       background:"linear-gradient(90deg,#1f2937 25%,#374151 50%,#1f2937 75%)",
@@ -49,91 +98,109 @@ const SkeletonCard=()=>(
   </div>
 );
 
-const Stars=({score})=>{
-  const filled=Math.round((score/10)*5);
-  return(
-    <div style={{display:"flex",gap:2}}>
-      {[1,2,3,4,5].map(i=>(
-        <svg key={i} width="11" height="11" viewBox="0 0 24 24"
-          fill={i<=filled?"#FBBF24":"none"} stroke="#FBBF24" strokeWidth="2">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-      ))}
-    </div>
-  );
-};
-
-const RankBadge=({rank})=>{
-  const bg=rank===1?"linear-gradient(135deg,#FFD700,#FFA500)"
-          :rank===2?"linear-gradient(135deg,#C0C0C0,#A8A8A8)"
-          :rank===3?"linear-gradient(135deg,#CD7F32,#A0522D)"
-          :"rgba(0,0,0,0.65)";
-  return(
+// ── Rank Badge ────────────────────────────────────────────────────────
+const RankBadge = ({rank}) => {
+  const bg = rank===1?"linear-gradient(135deg,#FFD700,#FFA500)"
+           : rank===2?"linear-gradient(135deg,#C0C0C0,#A8A8A8)"
+           : rank===3?"linear-gradient(135deg,#CD7F32,#A0522D)"
+           : "rgba(0,0,0,0.65)";
+  return (
     <div style={{position:"absolute",top:10,left:10,zIndex:3,width:30,height:30,
-      borderRadius:"50%",background:bg,display:"flex",alignItems:"center",
-      justifyContent:"center",fontFamily:"'Bebas Neue',cursive",fontSize:13,
-      color:rank<=3?"#000":"#fff",boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
+      borderRadius:"50%",background:bg,display:"flex",alignItems:"center",justifyContent:"center",
+      fontFamily:"'Bebas Neue',cursive",fontSize:13,color:rank<=3?"#000":"#fff",
+      boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
       border:rank<=3?"1.5px solid rgba(255,255,255,0.35)":"none"}}>#{rank}</div>
   );
 };
 
-const AnimeCard=({anime,rank,onClick})=>{
-  const [hovered,setHovered]=useState(false);
-  const img=anime.images?.jpg?.large_image_url||anime.images?.jpg?.image_url;
-  return(
-    <div onClick={()=>onClick(anime)}
+// ── Status Badge ──────────────────────────────────────────────────────
+const statusColor = s => s==="completed"?"rgba(34,197,94,0.9)"
+  : s==="ongoing"  ?"rgba(139,92,246,0.85)"
+  : s==="hiatus"   ?"rgba(234,179,8,0.85)"
+  : s==="cancelled"?"rgba(239,68,68,0.85)"
+  : "rgba(100,116,139,0.85)";
+
+// ── Novel Card ────────────────────────────────────────────────────────
+const NovelCard = ({series, rank, onClick}) => {
+  const [hovered, setHovered] = useState(false);
+  const image = series.book?.image ? getImageUrl(series.book.image) : null;
+  const volumes = series.volumes?.count ? parseInt(series.volumes.count) : series.c_num_books;
+  const tags = series.tags?.slice(0,1) || [];
+
+  return (
+    <div onClick={()=>onClick(series)}
       onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}
       style={{position:"relative",borderRadius:16,overflow:"hidden",cursor:"pointer",
         aspectRatio:"2/3",background:"#0f172a",
         transform:hovered?"translateY(-8px) scale(1.03)":"translateY(0) scale(1)",
         transition:"all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
-        boxShadow:hovered?"0 24px 60px rgba(239,68,68,0.25),0 8px 20px rgba(0,0,0,0.5)":"0 4px 16px rgba(0,0,0,0.4)"}}>
+        boxShadow:hovered?"0 24px 60px rgba(139,92,246,0.3),0 8px 20px rgba(0,0,0,0.5)":"0 4px 16px rgba(0,0,0,0.4)"}}>
+
       <RankBadge rank={rank}/>
-      {anime.status&&(
+
+      {/* Status badge */}
+      {series.publication_status&&(
         <div style={{position:"absolute",top:10,right:10,zIndex:3,
-          background:anime.status==="Currently Airing"?"rgba(34,197,94,0.9)":"rgba(0,0,0,0.7)",
-          backdropFilter:"blur(4px)",color:"#fff",fontSize:8,fontWeight:700,
-          letterSpacing:1,padding:"3px 7px",borderRadius:20,textTransform:"uppercase",
+          background:statusColor(series.publication_status),
+          color:"#fff",fontSize:8,fontWeight:700,letterSpacing:1,
+          padding:"3px 7px",borderRadius:20,textTransform:"uppercase",
           display:"flex",alignItems:"center",gap:4}}>
-          {anime.status==="Currently Airing"&&(
+          {series.publication_status==="ongoing"&&(
             <span style={{width:5,height:5,borderRadius:"50%",background:"#fff",
               animation:"pulse 1.5s infinite",display:"inline-block"}}/>
           )}
-          {anime.status==="Currently Airing"?"LIVE":anime.status==="Not yet aired"?"SOON":"DONE"}
+          {series.publication_status}
         </div>
       )}
-      {img&&<img src={img} alt={anime.title} style={{position:"absolute",inset:0,
-        width:"100%",height:"100%",objectFit:"cover",
-        transform:hovered?"scale(1.1)":"scale(1)",transition:"transform 0.5s ease"}}/>}
+
+      {/* Cover image */}
+      {image
+        ?<img src={image} alt={series.title}
+            onError={e=>{e.target.style.display="none";}}
+            style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",
+              transform:hovered?"scale(1.1)":"scale(1)",transition:"transform 0.5s ease"}}/>
+        :<div style={{position:"absolute",inset:0,
+            background:"linear-gradient(135deg,#1e1b4b,#0f172a)",
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:48}}>📖</div>
+      }
+
+      {/* Gradient overlay */}
       <div style={{position:"absolute",inset:0,
         background:hovered
           ?"linear-gradient(to top,rgba(0,0,0,0.98) 45%,rgba(0,0,0,0.2) 100%)"
-          :"linear-gradient(to top,rgba(0,0,0,0.88) 30%,transparent 65%)",
+          :"linear-gradient(to top,rgba(0,0,0,0.9) 35%,transparent 65%)",
         transition:"background 0.3s ease"}}/>
+
+      {/* Info */}
       <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 12px 12px"}}>
-        {anime.genres?.length>0&&(
-          <div style={{display:"inline-block",background:"#EF4444",color:"#fff",
+        {tags[0]&&(
+          <div style={{display:"inline-block",background:"#8B5CF6",color:"#fff",
             fontSize:8,fontWeight:700,letterSpacing:1.5,
             padding:"2px 7px",borderRadius:4,marginBottom:5,textTransform:"uppercase"}}>
-            {anime.genres[0].name}
+            {tags[0].name}
           </div>
         )}
-        <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:15,color:"#fff",
+        <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:14,color:"#fff",
           lineHeight:1.2,marginBottom:5,
           display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
-          {anime.title}
+          {series.title}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <Stars score={anime.score||0}/>
-          <span style={{color:"#FBBF24",fontSize:11,fontWeight:700}}>
-            {anime.score?anime.score.toFixed(1):"N/A"}
-          </span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {volumes>0&&(
+            <span style={{color:"#C4B5FD",fontSize:10}}>
+              📚 {volumes} vol{volumes!==1?"s":""}
+            </span>
+          )}
+          {series.start_date&&(
+            <span style={{color:"#64748B",fontSize:10}}>
+              {String(series.start_date).slice(0,4)}
+            </span>
+          )}
         </div>
-        {hovered&&anime.synopsis&&(
+        {hovered&&series.description&&(
           <div style={{marginTop:8,fontSize:10,color:"#cbd5e1",lineHeight:1.5,
-            display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden",
-            animation:"fadeUp 0.2s ease"}}>
-            {anime.synopsis.replace(/\[Written by MAL Rewrite\]/g,"").trim()}
+            display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
+            {series.description.slice(0,130)}...
           </div>
         )}
       </div>
@@ -141,93 +208,169 @@ const AnimeCard=({anime,rank,onClick})=>{
   );
 };
 
-const Modal=({anime,onClose})=>{
-  const [userRating,setUserRating]=useState(0);
-  const [hoverStar,setHoverStar]=useState(0);
-  const [submitted,setSubmitted]=useState(false);
+// ── Modal ─────────────────────────────────────────────────────────────
+const Modal = ({series, onClose}) => {
+  const [detail,     setDetail]     = useState(null);
+  const [loadingDet, setLoadingDet] = useState(true);
+  const [userRating, setUserRating] = useState(0);
+  const [hoverStar,  setHoverStar]  = useState(0);
+  const [submitted,  setSubmitted]  = useState(false);
+
   useEffect(()=>{
     document.body.style.overflow="hidden";
     const h=e=>e.key==="Escape"&&onClose();
     window.addEventListener("keydown",h);
+
+    // Fetch full series detail
+    fetch(`${API}/series/${series.id}`)
+      .then(r=>r.json())
+      .then(data=>{ setDetail(data); setLoadingDet(false); })
+      .catch(()=>setLoadingDet(false));
+
     return()=>{document.body.style.overflow="";window.removeEventListener("keydown",h);};
-  },[]);
-  const img=anime.images?.jpg?.large_image_url||anime.images?.jpg?.image_url;
-  const synopsis=anime.synopsis?.replace(/\[Written by MAL Rewrite\]/g,"").trim()||"No synopsis available.";
-  return(
+  },[series.id]);
+
+  const image = series.book?.image ? getImageUrl(series.book.image) : null;
+  const d     = detail || series;
+  const tags  = detail?.tags  || series.tags  || [];
+  const staff = detail?.staff || [];
+  const desc  = detail?.book_description?.description || detail?.description || series.description || "";
+  const authors = staff.filter(s=>s.role_type==="author").map(s=>s.name).join(", ");
+
+  return (
     <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:1000,
       display:"flex",alignItems:"center",justifyContent:"center",
       background:"rgba(0,0,0,0.88)",backdropFilter:"blur(14px)",
       padding:20,animation:"fadeIn 0.2s ease"}}>
       <div onClick={e=>e.stopPropagation()} style={{
         background:"linear-gradient(145deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%)",
-        borderRadius:24,overflow:"hidden",maxWidth:820,width:"100%",
+        borderRadius:24,overflow:"hidden",maxWidth:860,width:"100%",
         maxHeight:"90vh",overflowY:"auto",
-        border:"1px solid rgba(255,255,255,0.08)",
+        border:"1px solid rgba(139,92,246,0.2)",
         boxShadow:"0 40px 100px rgba(0,0,0,0.9)",
         animation:"slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1)",position:"relative"}}>
+
         <button onClick={onClose} style={{position:"absolute",top:14,right:14,zIndex:10,
           background:"rgba(255,255,255,0.08)",border:"none",color:"#fff",
           width:34,height:34,borderRadius:"50%",cursor:"pointer",fontSize:20,
-          display:"flex",alignItems:"center",justifyContent:"center"}}>x</button>
+          display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+
         <div style={{display:"flex",flexWrap:"wrap"}}>
-          <div style={{width:200,flexShrink:0,position:"relative",minHeight:300}}>
-            {img&&<img src={img} alt={anime.title} style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0}}/>}
-            <div style={{position:"absolute",inset:0,background:"linear-gradient(to right,transparent 50%,#0f172a 100%)"}}/>
+          {/* Cover */}
+          <div style={{width:190,flexShrink:0,position:"relative",minHeight:290}}>
+            {image
+              ?<img src={image} alt={series.title}
+                  onError={e=>{e.target.style.display="none";}}
+                  style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0}}/>
+              :<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#1e1b4b,#0f172a)",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:64}}>📖</div>
+            }
+            <div style={{position:"absolute",inset:0,
+              background:"linear-gradient(to right,transparent 50%,#0f172a 100%)"}}/>
           </div>
-          <div style={{flex:1,minWidth:280,padding:"28px 24px 24px"}}>
+
+          {/* Info */}
+          <div style={{flex:1,minWidth:260,padding:"28px 24px 24px"}}>
+            {/* Tags */}
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-              {anime.genres?.slice(0,4).map(g=>(
-                <span key={g.mal_id} style={{background:"rgba(239,68,68,0.15)",
-                  border:"1px solid rgba(239,68,68,0.3)",color:"#FCA5A5",
-                  fontSize:10,padding:"2px 9px",borderRadius:20}}>{g.name}</span>
+              {tags.slice(0,5).map(t=>(
+                <span key={t.id} style={{
+                  background: t.ttype==="genre"?"rgba(139,92,246,0.15)":"rgba(255,255,255,0.06)",
+                  border:`1px solid ${t.ttype==="genre"?"rgba(139,92,246,0.3)":"rgba(255,255,255,0.1)"}`,
+                  color: t.ttype==="genre"?"#C4B5FD":"#94A3B8",
+                  fontSize:10,padding:"2px 9px",borderRadius:20}}>{t.name}</span>
               ))}
+              {series.publication_status&&(
+                <span style={{
+                  background:statusColor(series.publication_status).replace("0.9","0.15").replace("0.85","0.15"),
+                  border:`1px solid ${statusColor(series.publication_status).replace("0.9","0.4").replace("0.85","0.4")}`,
+                  color:"#fff",fontSize:10,padding:"2px 9px",borderRadius:20,textTransform:"capitalize"}}>
+                  {series.publication_status}
+                </span>
+              )}
             </div>
-            <h2 style={{fontFamily:"'Bebas Neue',cursive",fontSize:32,color:"#fff",lineHeight:1.1,marginBottom:4}}>
-              {anime.title}
+
+            {/* Title */}
+            <h2 style={{fontFamily:"'Bebas Neue',cursive",fontSize:28,color:"#fff",lineHeight:1.1,marginBottom:2}}>
+              {series.title}
             </h2>
-            {anime.title_english&&anime.title_english!==anime.title&&(
-              <div style={{color:"#64748B",fontSize:12,marginBottom:12}}>{anime.title_english}</div>
+            {series.romaji&&series.romaji!==series.title&&(
+              <div style={{color:"#64748B",fontSize:12,marginBottom:4}}>{series.romaji}</div>
             )}
+            {series.title_orig&&(
+              <div style={{color:"#475569",fontSize:12,marginBottom:12}}>{series.title_orig}</div>
+            )}
+            {authors&&(
+              <div style={{color:"#94A3B8",fontSize:13,marginBottom:14}}>by {authors}</div>
+            )}
+
+            {/* Stats row */}
             <div style={{display:"flex",gap:20,marginBottom:16,flexWrap:"wrap"}}>
               {[
-                {label:"SCORE",     value:anime.score       ?`${anime.score} *`    :"N/A"},
-                {label:"RANK",      value:anime.rank        ?`#${anime.rank}`      :"--"},
-                {label:"POPULARITY",value:anime.popularity  ?`#${anime.popularity}`:"--"},
-                {label:"EPISODES",  value:anime.episodes    ||"?"},
-                {label:"YEAR",      value:anime.year        ||"?"},
+                {label:"VOLUMES",  value: d.c_num_books||series.volumes?.count||"?"},
+                {label:"START",    value: d.start_date  ? String(d.start_date).slice(0,4) : "?"},
+                {label:"END",      value: d.end_date    ? String(d.end_date).slice(0,4)   : "—"},
+                {label:"LANGUAGE", value: (series.olang||"ja").toUpperCase()},
               ].map(({label,value})=>(
                 <div key={label} style={{textAlign:"center"}}>
-                  <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:22,color:"#EF4444",lineHeight:1}}>{value}</div>
+                  <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:20,color:"#8B5CF6",lineHeight:1}}>{value}</div>
                   <div style={{color:"#64748B",fontSize:9,letterSpacing:1.5,marginTop:2}}>{label}</div>
                 </div>
               ))}
             </div>
-            <p style={{color:"#CBD5E1",fontSize:13,lineHeight:1.75,marginBottom:18}}>
-              {synopsis.length>350?synopsis.slice(0,350)+"...":synopsis}
-            </p>
-            <div style={{display:"flex",gap:24,marginBottom:18,flexWrap:"wrap"}}>
-              {anime.studios?.length>0&&(
-                <div>
-                  <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:3}}>STUDIO</div>
-                  <div style={{color:"#94A3B8",fontSize:12}}>{anime.studios.map(s=>s.name).join(", ")}</div>
+
+            {/* Description */}
+            {loadingDet?(
+              <div style={{color:"#374151",fontSize:13,marginBottom:18}}>Loading details...</div>
+            ):(
+              desc&&(
+                <p style={{color:"#CBD5E1",fontSize:13,lineHeight:1.75,marginBottom:18}}>
+                  {desc.length>450?desc.slice(0,450)+"...":desc}
+                </p>
+              )
+            )}
+
+            {/* Volume list (first 5) */}
+            {detail?.books?.length>0&&(
+              <div style={{marginBottom:18}}>
+                <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:8}}>VOLUMES</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {detail.books.filter(b=>b.book_type==="main").slice(0,8).map((b,i)=>(
+                    <div key={b.id} style={{
+                      background:"rgba(139,92,246,0.08)",border:"1px solid rgba(139,92,246,0.2)",
+                      borderRadius:8,padding:"4px 10px",fontSize:11,color:"#A78BFA"}}>
+                      Vol.{i+1}
+                    </div>
+                  ))}
+                  {detail.books.filter(b=>b.book_type==="main").length>8&&(
+                    <div style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",
+                      borderRadius:8,padding:"4px 10px",fontSize:11,color:"#64748B"}}>
+                      +{detail.books.filter(b=>b.book_type==="main").length-8} more
+                    </div>
+                  )}
                 </div>
-              )}
-              {anime.source&&(
-                <div>
-                  <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:3}}>SOURCE</div>
-                  <div style={{color:"#94A3B8",fontSize:12}}>{anime.source}</div>
-                </div>
+              </div>
+            )}
+
+            {/* Links */}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
+              <a href={`https://ranobedb.org/series/${series.id}`} target="_blank" rel="noreferrer"
+                style={{display:"inline-flex",alignItems:"center",gap:6,
+                  background:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.3)",
+                  color:"#C4B5FD",padding:"6px 14px",borderRadius:8,fontSize:12,textDecoration:"none"}}>
+                ↗ View on RanobeDB
+              </a>
+              {detail?.web_novel&&(
+                <a href={detail.web_novel} target="_blank" rel="noreferrer"
+                  style={{display:"inline-flex",alignItems:"center",gap:6,
+                    background:"rgba(59,130,246,0.15)",border:"1px solid rgba(59,130,246,0.3)",
+                    color:"#93C5FD",padding:"6px 14px",borderRadius:8,fontSize:12,textDecoration:"none"}}>
+                  🌐 Web Novel
+                </a>
               )}
             </div>
-            {anime.url&&(
-              <a href={anime.url} target="_blank" rel="noreferrer" style={{
-                display:"inline-flex",alignItems:"center",gap:6,
-                background:"rgba(59,130,246,0.15)",border:"1px solid rgba(59,130,246,0.3)",
-                color:"#93C5FD",padding:"6px 14px",borderRadius:8,
-                fontSize:12,textDecoration:"none",marginBottom:18}}>
-                View on MyAnimeList
-              </a>
-            )}
+
+            {/* Personal rating widget */}
             <div style={{background:"rgba(255,255,255,0.04)",borderRadius:12,padding:14,
               border:"1px solid rgba(255,255,255,0.07)"}}>
               <div style={{color:"#64748B",fontSize:10,letterSpacing:2,marginBottom:10}}>YOUR RATING</div>
@@ -241,17 +384,17 @@ const Modal=({anime,onClose})=>{
                         onMouseEnter={()=>setHoverStar(n)} onMouseLeave={()=>setHoverStar(0)}
                         onClick={()=>setUserRating(n)}
                         style={{width:30,height:30,borderRadius:7,border:"none",cursor:"pointer",
-                          background:n<=(hoverStar||userRating)?"#EF4444":"rgba(255,255,255,0.07)",
+                          background:n<=(hoverStar||userRating)?"#8B5CF6":"rgba(255,255,255,0.07)",
                           color:"#fff",fontSize:11,fontWeight:700,
                           transform:n<=(hoverStar||userRating)?"scale(1.15)":"scale(1)",
                           transition:"all 0.15s ease"}}>{n}</button>
                     ))}
                   </div>
                   <button onClick={()=>userRating>0&&setSubmitted(true)} style={{
-                    background:userRating>0?"#EF4444":"rgba(255,255,255,0.08)",
+                    background:userRating>0?"#8B5CF6":"rgba(255,255,255,0.08)",
                     color:"#fff",border:"none",borderRadius:8,
                     padding:"7px 18px",cursor:userRating>0?"pointer":"default",
-                    fontSize:12,fontWeight:600}}>Submit Rating</button>
+                    fontSize:12,fontWeight:600}}>Submit</button>
                 </div>
               )}
             </div>
@@ -262,135 +405,136 @@ const Modal=({anime,onClose})=>{
   );
 };
 
-function App(){
-  const [animeList,setAnimeList]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState(null);
-  const [selected,setSelected]=useState(null);
-  const [searchInput,setSearchInput]=useState("");
-  const [search,setSearch]=useState("");
-  const [activeFilter,setActiveFilter]=useState("airing");
-  const [activeGenre,setActiveGenre]=useState("all");
-  const [page,setPage]=useState(1);
-  const [hasMore,setHasMore]=useState(true);
-  const [loadingMore,setLoadingMore]=useState(false);
-  const [totalCount,setTotalCount]=useState(0);
-  const debounceRef=useRef(null);
+// ── Main App ──────────────────────────────────────────────────────────
+function App() {
+  const [series,      setSeries]      = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error,       setError]       = useState(null);
+  const [selected,    setSelected]    = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search,      setSearch]      = useState("");
+  const [activeSort,  setActiveSort]  = useState("Start date desc");
+  const [activeStatus,setActiveStatus]= useState("all");
+  const [genres,      setGenres]      = useState([]); // loaded from API
+  const [activeGenre, setActiveGenre] = useState("all");
+  const [page,        setPage]        = useState(1);
+  const [totalPages,  setTotalPages]  = useState(1);
+  const [totalCount,  setTotalCount]  = useState(0);
+  const debounceRef = useRef(null);
 
-  // Plain function — takes all params explicitly so stale closure is impossible
-  async function doFetch(p,reset,s,f,g){
-    try{
-      reset?setLoading(true):setLoadingMore(true);
+  // Load genres/tags from API on mount
+  useEffect(()=>{
+    fetch(`${API}/tags?limit=100`)
+      .then(r=>r.json())
+      .then(data=>{
+        const genreTags = (data.tags||[]).filter(t=>t.ttype==="genre");
+        setGenres([{id:"all",name:"All Genres"}, ...genreTags]);
+      })
+      .catch(()=>setGenres([{id:"all",name:"All Genres"}]));
+  },[]);
+
+  async function doFetch(p, reset, q, sort, status, genre) {
+    try {
+      reset ? setLoading(true) : setLoadingMore(true);
       setError(null);
-      const limit=24;
-      let url="";
-      if(s.trim()){
-        url=`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(s)}&limit=${limit}&page=${p}&sfw=true`;
-        if(g!=="all") url+=`&genres=${g}`;
-      } else if(g!=="all"){
-        url=`https://api.jikan.moe/v4/anime?genres=${g}&order_by=score&sort=desc&limit=${limit}&page=${p}&sfw=true`;
-      } else {
-        url=`https://api.jikan.moe/v4/top/anime?filter=${f}&limit=${limit}&page=${p}`;
-      }
-      const res=await fetch(url);
-      if(!res.ok) throw new Error(`API error ${res.status}`);
-      const json=await res.json();
-      const items=json.data||[];
-      setAnimeList(prev=>reset?items:[...prev,...items]);
-      setHasMore(json.pagination?.has_next_page??false);
-      setTotalCount(json.pagination?.items?.total??items.length);
+
+      const params = new URLSearchParams({
+        limit: 24,
+        page:  p,
+        sort,
+        rl:    "ja",  // Japanese language releases
+      });
+
+      if (q.trim())             params.set("q", q.trim());
+      if (status !== "all")     params.set("pubStatus", status);
+      if (genre  !== "all")     params.append("genresInclude", genre);
+
+      const url = `${API}/series?${params}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+
+      setSeries(prev => reset ? (data.series||[]) : [...prev, ...(data.series||[])]);
+      setTotalPages(data.totalPages || 1);
+      setTotalCount(parseInt(data.count) || 0);
       setPage(p);
-    }catch(err){
+    } catch(err) {
       setError(err.message);
-    }finally{
+    } finally {
       setLoading(false);
       setLoadingMore(false);
     }
   }
 
-  // Trigger fresh fetch whenever filter/genre/search changes
   useEffect(()=>{
-    doFetch(1,true,search,activeFilter,activeGenre);
-  },[activeFilter,activeGenre,search]);
+    setSeries([]);
+    doFetch(1, true, search, activeSort, activeStatus, activeGenre);
+  },[search, activeSort, activeStatus, activeGenre]);
 
-  const handleFilterClick=(fid)=>{
-    setActiveFilter(fid);
-    setActiveGenre("all");
-    setSearchInput("");
-    setSearch("");
-  };
-
-  const handleGenreClick=(gid)=>{
-    setActiveGenre(gid);
-    setSearchInput("");
-    setSearch("");
-  };
-
-  const handleSearchChange=val=>{
+  const handleSortClick = s => { setActiveSort(s); };
+  const handleStatusClick = s => { setActiveStatus(s); };
+  const handleGenreClick = g => { setActiveGenre(g); };
+  const handleSearchChange = val => {
     setSearchInput(val);
     clearTimeout(debounceRef.current);
-    debounceRef.current=setTimeout(()=>{
-      setActiveFilter("airing");
-      setActiveGenre("all");
-      setSearch(val);
-    },500);
+    debounceRef.current = setTimeout(()=>setSearch(val), 500);
   };
 
-  const currentFilterLabel=search
-    ?`RESULTS FOR "${search.toUpperCase()}"`
-    :activeGenre!=="all"
-      ?(GENRES.find(g=>g.id===activeGenre)?.label.toUpperCase()+" ANIME")
-      :(FILTERS.find(f=>f.id===activeFilter)?.label.replace(/[\u{1F7E0}\u{1F7E1}\u{1F525}\u2764\uFE0F]/gu,"").trim().toUpperCase()+" ANIME");
+  const heroTitle = search
+    ? `RESULTS FOR "${search.toUpperCase()}"`
+    : activeGenre!=="all"
+    ? `${(genres.find(g=>g.id===activeGenre)?.name||"").toUpperCase()} NOVELS`
+    : "JAPANESE NOVEL RANKINGS";
 
-  return(
-    <div style={{minHeight:"100vh",background:"#060912",color:"#fff",fontFamily:"'Outfit',sans-serif"}}>
+  return (
+    <div style={{minHeight:"100vh",background:"#0a0a0f",color:"#fff",fontFamily:"'Outfit',sans-serif"}}>
 
       {/* ── Header ── */}
       <header style={{position:"sticky",top:0,zIndex:100,
-        background:"rgba(6,9,18,0.92)",backdropFilter:"blur(20px)",
-        borderBottom:"1px solid rgba(255,255,255,0.06)",padding:"0 24px"}}>
+        background:"rgba(10,10,15,0.92)",backdropFilter:"blur(20px)",
+        borderBottom:"1px solid rgba(139,92,246,0.15)",padding:"0 24px"}}>
         <div style={{maxWidth:1400,margin:"0 auto",display:"flex",alignItems:"center",
-          gap:20,minHeight:62,flexWrap:"wrap",paddingTop:8,paddingBottom:8}}>
+          gap:16,minHeight:62,flexWrap:"wrap",paddingTop:8,paddingBottom:8}}>
 
           {/* Logo */}
           <div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
-            <div style={{width:34,height:34,background:"#EF4444",borderRadius:9,
+            <div style={{width:34,height:34,background:"#8B5CF6",borderRadius:9,
               display:"flex",alignItems:"center",justifyContent:"center",
-              fontFamily:"'Bebas Neue',cursive",fontSize:18,color:"#fff"}}>AT</div>
+              fontFamily:"'Bebas Neue',cursive",fontSize:18,color:"#fff"}}>NT</div>
             <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:22,letterSpacing:2}}>
-              ANIME<span style={{color:"#EF4444"}}>TREND</span>
+              NOVEL<span style={{color:"#8B5CF6"}}>TREND</span>
             </span>
           </div>
 
           {/* Search */}
-          <div style={{flex:1,maxWidth:480,position:"relative"}}>
+          <div style={{flex:1,maxWidth:440,position:"relative"}}>
             <svg style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",opacity:0.35}}
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input value={searchInput} onChange={e=>handleSearchChange(e.target.value)}
-              placeholder="Search any anime..."
+              placeholder="Search novels..."
               style={{width:"100%",background:"rgba(255,255,255,0.06)",
                 border:"1px solid rgba(255,255,255,0.09)",
                 borderRadius:11,padding:"9px 36px",color:"#fff",fontSize:13,outline:"none"}}/>
             {searchInput&&(
               <button onClick={()=>{setSearchInput("");setSearch("");}}
                 style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
-                  background:"none",border:"none",color:"#64748B",cursor:"pointer",fontSize:16}}>x</button>
+                  background:"none",border:"none",color:"#64748B",cursor:"pointer",fontSize:18}}>×</button>
             )}
           </div>
 
-          {/* Filter tabs — always visible */}
-          <div style={{display:"flex",gap:2,background:"rgba(255,255,255,0.04)",
-            borderRadius:10,padding:3,flexWrap:"wrap"}}>
-            {FILTERS.map(f=>(
-              <button key={f.id} onClick={()=>handleFilterClick(f.id)} style={{
-                background:activeFilter===f.id&&activeGenre==="all"&&!search?"#EF4444":"transparent",
+          {/* Sort tabs */}
+          <div style={{display:"flex",gap:2,background:"rgba(255,255,255,0.04)",borderRadius:10,padding:3,flexWrap:"wrap"}}>
+            {SORTS.map(s=>(
+              <button key={s.id} onClick={()=>handleSortClick(s.id)} style={{
+                background:activeSort===s.id?"#8B5CF6":"transparent",
                 border:"none",
-                color:activeFilter===f.id&&activeGenre==="all"&&!search?"#fff":"#64748B",
-                padding:"6px 11px",borderRadius:8,cursor:"pointer",
+                color:activeSort===s.id?"#fff":"#64748B",
+                padding:"6px 10px",borderRadius:8,cursor:"pointer",
                 fontSize:11,fontWeight:600,whiteSpace:"nowrap",transition:"all 0.2s"}}>
-                {f.label}
+                {s.label}
               </button>
             ))}
           </div>
@@ -399,36 +543,58 @@ function App(){
 
       {/* ── Hero ── */}
       <div style={{position:"relative",overflow:"hidden",
-        background:"linear-gradient(160deg,#0f0c29,#1a0533,#060912)",
-        padding:"56px 24px 44px",textAlign:"center"}}>
+        background:"linear-gradient(160deg,#0f0c29,#1a0533,#0a0a0f)",
+        padding:"48px 24px 36px",textAlign:"center"}}>
         <div style={{position:"absolute",top:-80,left:"50%",transform:"translateX(-50%)",
           width:700,height:280,
-          background:"radial-gradient(ellipse,rgba(239,68,68,0.12) 0%,transparent 70%)",
+          background:"radial-gradient(ellipse,rgba(139,92,246,0.15) 0%,transparent 70%)",
           pointerEvents:"none"}}/>
         <div style={{fontFamily:"'Bebas Neue',cursive",
-          fontSize:"clamp(28px,5vw,64px)",lineHeight:1,letterSpacing:3,marginBottom:10}}>
-          {currentFilterLabel}
+          fontSize:"clamp(28px,5vw,60px)",lineHeight:1,letterSpacing:3,marginBottom:10}}>
+          {heroTitle}
         </div>
-        <div style={{color:"#64748B",fontSize:14}}>
-          Live data from{" "}<span style={{color:"#EF4444"}}>MyAnimeList</span>{" "}via Jikan API
-          {totalCount>0&&!loading&&<span> · {totalCount.toLocaleString()} titles found</span>}
+        <div style={{color:"#64748B",fontSize:14,display:"flex",
+          alignItems:"center",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
+          <span>Powered by <span style={{color:"#8B5CF6"}}>RanobeDB</span></span>
+          {!loading&&totalCount>0&&(
+            <><span style={{color:"#374151"}}>·</span>
+            <span style={{color:"#374151"}}>{totalCount.toLocaleString()} series found</span></>
+          )}
         </div>
       </div>
 
-      {/* ── Genre pills ── */}
+      {/* ── Filters bar ── */}
       <div style={{background:"rgba(255,255,255,0.02)",
-        borderBottom:"1px solid rgba(255,255,255,0.05)",padding:"14px 24px"}}>
-        <div style={{maxWidth:1400,margin:"0 auto",display:"flex",gap:8,flexWrap:"wrap"}}>
-          {GENRES.map(g=>(
-            <button key={g.id} onClick={()=>handleGenreClick(g.id)} style={{
-              background:activeGenre===g.id?"#EF4444":"rgba(255,255,255,0.05)",
-              border:activeGenre===g.id?"1px solid #EF4444":"1px solid rgba(255,255,255,0.08)",
-              color:activeGenre===g.id?"#fff":"#94A3B8",
-              padding:"5px 15px",borderRadius:20,cursor:"pointer",
-              fontSize:12,fontWeight:500,transition:"all 0.2s"}}>
-              {g.label}
-            </button>
-          ))}
+        borderBottom:"1px solid rgba(255,255,255,0.05)",padding:"12px 24px"}}>
+        <div style={{maxWidth:1400,margin:"0 auto"}}>
+
+          {/* Status filter */}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+            {STATUSES.map(s=>(
+              <button key={s.id} onClick={()=>handleStatusClick(s.id)} style={{
+                background:activeStatus===s.id?"#8B5CF6":"rgba(255,255,255,0.05)",
+                border:activeStatus===s.id?"1px solid #8B5CF6":"1px solid rgba(255,255,255,0.08)",
+                color:activeStatus===s.id?"#fff":"#94A3B8",
+                padding:"4px 13px",borderRadius:20,cursor:"pointer",
+                fontSize:12,fontWeight:500,transition:"all 0.2s"}}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Genre filter — loaded from API */}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {genres.map(g=>(
+              <button key={g.id} onClick={()=>handleGenreClick(g.id)} style={{
+                background:activeGenre===g.id?"rgba(139,92,246,0.3)":"rgba(255,255,255,0.03)",
+                border:activeGenre===g.id?"1px solid rgba(139,92,246,0.6)":"1px solid rgba(255,255,255,0.06)",
+                color:activeGenre===g.id?"#E9D5FF":"#64748B",
+                padding:"3px 11px",borderRadius:20,cursor:"pointer",
+                fontSize:11,fontWeight:500,transition:"all 0.2s"}}>
+                {g.name}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -437,69 +603,69 @@ function App(){
 
         {error&&(
           <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",
-            borderRadius:12,padding:"20px 24px",textAlign:"center",marginBottom:24}}>
-            <div style={{fontSize:28,marginBottom:8}}>Warning</div>
-            <div style={{color:"#FCA5A5",fontWeight:600}}>Failed to load data</div>
-            <div style={{color:"#64748B",fontSize:13,marginTop:4}}>{error}</div>
-            <button onClick={()=>doFetch(1,true,search,activeFilter,activeGenre)}
-              style={{marginTop:12,background:"#EF4444",border:"none",color:"#fff",
+            borderRadius:12,padding:"24px",textAlign:"center",marginBottom:24}}>
+            <div style={{color:"#FCA5A5",fontWeight:600,marginBottom:8}}>Failed to load</div>
+            <div style={{color:"#64748B",fontSize:13,marginBottom:12}}>{error}</div>
+            <button onClick={()=>doFetch(1,true,search,activeSort,activeStatus,activeGenre)}
+              style={{background:"#8B5CF6",border:"none",color:"#fff",
                 padding:"8px 20px",borderRadius:8,cursor:"pointer",fontSize:13}}>Retry</button>
           </div>
         )}
 
-        {loading&&(
+        {loading&&!error&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:18}}>
             {Array.from({length:24}).map((_,i)=><SkeletonCard key={i}/>)}
           </div>
         )}
 
-        {!loading&&!error&&animeList.length>0&&(
+        {!loading&&!error&&series.length>0&&(
           <>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:18}}>
-              {animeList.map((anime,i)=>(
-                <AnimeCard key={`${anime.mal_id}-${i}`} anime={anime} rank={i+1} onClick={setSelected}/>
+              {series.map((s,i)=>(
+                <NovelCard key={s.id} series={s} rank={i+1+(page-1)*24} onClick={setSelected}/>
               ))}
             </div>
-            {hasMore&&(
+            {page < totalPages&&(
               <div style={{textAlign:"center",marginTop:40}}>
-                <button onClick={()=>doFetch(page+1,false,search,activeFilter,activeGenre)}
-                  disabled={loadingMore} style={{
-                  background:"transparent",border:"1px solid rgba(239,68,68,0.4)",
-                  color:"#EF4444",padding:"12px 36px",borderRadius:12,
-                  cursor:loadingMore?"default":"pointer",fontSize:14,fontWeight:600,
-                  display:"inline-flex",alignItems:"center",gap:10}}>
+                <button
+                  onClick={()=>doFetch(page+1,false,search,activeSort,activeStatus,activeGenre)}
+                  disabled={loadingMore}
+                  style={{background:"transparent",border:"1px solid rgba(139,92,246,0.4)",
+                    color:"#8B5CF6",padding:"12px 36px",borderRadius:12,
+                    cursor:loadingMore?"default":"pointer",fontSize:14,fontWeight:600,
+                    display:"inline-flex",alignItems:"center",gap:10}}>
                   {loadingMore?(
                     <>
-                      <span style={{width:14,height:14,border:"2px solid #EF4444",
+                      <span style={{width:14,height:14,border:"2px solid #8B5CF6",
                         borderTopColor:"transparent",borderRadius:"50%",
                         animation:"spin 0.7s linear infinite",display:"inline-block"}}/>
                       Loading...
                     </>
-                  ):"Load More Anime"}
+                  ):`Load More  (Page ${page+1} of ${totalPages})`}
                 </button>
               </div>
             )}
           </>
         )}
 
-        {!loading&&!error&&animeList.length===0&&(
+        {!loading&&!error&&series.length===0&&(
           <div style={{textAlign:"center",padding:"80px 0",color:"#4B5563"}}>
-            <div style={{fontSize:52,marginBottom:16}}>Search</div>
-            <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:30}}>No anime found</div>
-            <div style={{fontSize:14,marginTop:8}}>Try a different search or filter</div>
+            <div style={{fontSize:52,marginBottom:16}}>📖</div>
+            <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:30}}>No novels found</div>
+            <div style={{fontSize:14,marginTop:8}}>Try a different filter or search term</div>
           </div>
         )}
       </main>
 
       <footer style={{borderTop:"1px solid rgba(255,255,255,0.05)",padding:"20px 24px",
         textAlign:"center",color:"#374151",fontSize:12}}>
-        <span style={{fontFamily:"'Bebas Neue',cursive",color:"#EF4444",fontSize:14,letterSpacing:2}}>
-          ANIMETREND
+        <span style={{fontFamily:"'Bebas Neue',cursive",color:"#8B5CF6",fontSize:14,letterSpacing:2}}>
+          NOVELTREND
         </span>
-        {" - Powered by Jikan API (MyAnimeList) - "}{new Date().getFullYear()}
+        {" · Powered by RanobeDB · "}{new Date().getFullYear()}
       </footer>
 
-      {selected&&<Modal anime={selected} onClose={()=>setSelected(null)}/>}
+      {selected&&<Modal series={selected} onClose={()=>setSelected(null)}/>}
     </div>
   );
 }
