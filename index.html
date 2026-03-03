@@ -78,7 +78,7 @@ const PRESET_GENRES = [
 
 function getImageUrl(image) {
   if (!image) return null;
-  return `https://novelupdates-scraper.onrender.com/image/${image.filename}`;
+  return `https://images.ranobedb.org/${image.filename}`;
 }
 
 function formatDate(dateNum) {
@@ -122,36 +122,38 @@ const statusColor = s => s==="completed"?"rgba(34,197,94,0.9)"
 
 // ── Novel Card ────────────────────────────────────────────────────────
 const NovelCard = ({series, rank, onClick}) => {
-  const [hovered,   setHovered]   = useState(false);
-  const [coverImg,  setCoverImg]  = useState(
-    series.book?.image ? getImageUrl(series.book.image) : null
-  );
-
-  // On first hover, fetch full series to get the last (max) volume cover
-  const fetchedRef = useRef(false);
-  const handleHover = async (entering) => {
-    setHovered(entering);
-    if (entering && !fetchedRef.current) {
-      fetchedRef.current = true;
-      try {
-        const res  = await fetch(`${API}/series/${series.id}`);
-        const data = await res.json();
-        // Get main books sorted by sort_order, pick the last one
-        const mainBooks = (data.books || [])
-          .filter(b => b.book_type === "main")
-          .sort((a, b) => a.sort_order - b.sort_order);
-        const lastBook = mainBooks[mainBooks.length - 1];
-        if (lastBook?.image) setCoverImg(getImageUrl(lastBook.image));
-      } catch(e) {}
+  const [hovered,  setHovered]  = useState(false);
+  const [coverImg, setCoverImg] = useState(null);
+  
+  useEffect(()=>{
+    if (series.book?.image?.filename) {
+      setCoverImg(getImageUrl(series.book.image));
     }
-  };
+  }, [series.id]);
+
+    // Otherwise fetch the full series detail to find a cover
+    fetch(`${API}/series/${series.id}`)
+      .then(r=>r.json())
+      .then(data=>{
+        // Go through all books and find the first one with an image
+        const allBooks = (data.books || [])
+          .filter(b => b.book_type === "main" && b.image)
+          .sort((a,b) => a.sort_order - b.sort_order);
+        if (allBooks.length > 0) {
+          // Pick last volume (max)
+          const lastBook = allBooks[allBooks.length - 1];
+          setCoverImg(getImageUrl(lastBook.image));
+        }
+      })
+      .catch(()=>{});
+  }, [series.id]);
 
   const volumes = series.c_num_books || parseInt(series.volumes?.count) || 0;
   const tags    = series.tags?.slice(0,1) || [];
 
   return (
     <div onClick={()=>onClick(series)}
-      onMouseEnter={()=>handleHover(true)} onMouseLeave={()=>handleHover(false)}
+      onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}
       style={{position:"relative",borderRadius:16,overflow:"hidden",cursor:"pointer",
         aspectRatio:"2/3",background:"#0f172a",
         transform:hovered?"translateY(-8px) scale(1.03)":"translateY(0) scale(1)",
@@ -225,7 +227,6 @@ const NovelCard = ({series, rank, onClick}) => {
     </div>
   );
 };
-
 // ── Modal ─────────────────────────────────────────────────────────────
 const Modal = ({series, onClose}) => {
   const [detail,     setDetail]     = useState(null);
