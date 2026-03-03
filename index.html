@@ -1,47 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AnimeTrend</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NovelTrend — Japanese Novel Rankings</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#060912;color:#fff;font-family:'Outfit',sans-serif}
+    body{background:#0a0a0f;color:#fff;font-family:'Outfit',sans-serif}
     ::-webkit-scrollbar{width:5px}
     ::-webkit-scrollbar-track{background:#0a0f1e}
-    ::-webkit-scrollbar-thumb{background:#EF4444;border-radius:3px}
+    ::-webkit-scrollbar-thumb{background:#8B5CF6;border-radius:3px}
     input::placeholder{color:#374151}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes slideUp{from{opacity:0;transform:translateY(40px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
     @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
     @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useEffect,useRef}=React;
+// ⚠️ CHANGE THIS to your Render backend URL after deploying
+const API_BASE = "https://novelupdates-scraper.onrender.com";
 
-const GENRES=[
-  {id:"all",label:"All"},{id:1,label:"Action"},{id:2,label:"Adventure"},
-  {id:4,label:"Comedy"},{id:8,label:"Drama"},{id:10,label:"Fantasy"},
-  {id:14,label:"Horror"},{id:22,label:"Romance"},{id:24,label:"Sci-Fi"},
-  {id:36,label:"Slice of Life"},{id:37,label:"Supernatural"},
-];
-const FILTERS=[
-  {id:"airing",label:"🔴 Airing Now"},
-  {id:"upcoming",label:"🟡 Upcoming"},
-  {id:"bypopularity",label:"🔥 Most Popular"},
-  {id:"favorite",label:"❤️ Most Favorited"},
+const {useState, useEffect, useRef} = React;
+
+const GENRES = [
+  {id:"all",label:"All"},
+  {id:"action",label:"Action"},
+  {id:"adventure",label:"Adventure"},
+  {id:"comedy",label:"Comedy"},
+  {id:"drama",label:"Drama"},
+  {id:"fantasy",label:"Fantasy"},
+  {id:"horror",label:"Horror"},
+  {id:"mystery",label:"Mystery"},
+  {id:"romance",label:"Romance"},
+  {id:"sci-fi",label:"Sci-Fi"},
+  {id:"slice-of-life",label:"Slice of Life"},
+  {id:"supernatural",label:"Supernatural"},
+  {id:"psychological",label:"Psychological"},
+  {id:"historical",label:"Historical"},
 ];
 
-const SkeletonCard=()=>(
+const SORTS = [
+  {id:"latest",  label:"🕐 Latest"},
+  {id:"rating",  label:"⭐ Top Rated"},
+  {id:"readers", label:"🔥 Most Read"},
+  {id:"chapters",label:"📖 Most Chapters"},
+];
+
+const SkeletonCard = () => (
   <div style={{borderRadius:16,overflow:"hidden",background:"#111827",aspectRatio:"2/3"}}>
     <div style={{width:"100%",height:"100%",
       background:"linear-gradient(90deg,#1f2937 25%,#374151 50%,#1f2937 75%)",
@@ -49,91 +62,72 @@ const SkeletonCard=()=>(
   </div>
 );
 
-const Stars=({score})=>{
-  const filled=Math.round((score/10)*5);
-  return(
-    <div style={{display:"flex",gap:2}}>
-      {[1,2,3,4,5].map(i=>(
-        <svg key={i} width="11" height="11" viewBox="0 0 24 24"
-          fill={i<=filled?"#FBBF24":"none"} stroke="#FBBF24" strokeWidth="2">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-      ))}
-    </div>
-  );
-};
-
-const RankBadge=({rank})=>{
-  const bg=rank===1?"linear-gradient(135deg,#FFD700,#FFA500)"
-          :rank===2?"linear-gradient(135deg,#C0C0C0,#A8A8A8)"
-          :rank===3?"linear-gradient(135deg,#CD7F32,#A0522D)"
-          :"rgba(0,0,0,0.65)";
-  return(
+const RankBadge = ({rank}) => {
+  const bg = rank===1?"linear-gradient(135deg,#FFD700,#FFA500)"
+           : rank===2?"linear-gradient(135deg,#C0C0C0,#A8A8A8)"
+           : rank===3?"linear-gradient(135deg,#CD7F32,#A0522D)"
+           : "rgba(0,0,0,0.65)";
+  return (
     <div style={{position:"absolute",top:10,left:10,zIndex:3,width:30,height:30,
-      borderRadius:"50%",background:bg,display:"flex",alignItems:"center",
-      justifyContent:"center",fontFamily:"'Bebas Neue',cursive",fontSize:13,
-      color:rank<=3?"#000":"#fff",boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
+      borderRadius:"50%",background:bg,display:"flex",alignItems:"center",justifyContent:"center",
+      fontFamily:"'Bebas Neue',cursive",fontSize:13,color:rank<=3?"#000":"#fff",
+      boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
       border:rank<=3?"1.5px solid rgba(255,255,255,0.35)":"none"}}>#{rank}</div>
   );
 };
 
-const AnimeCard=({anime,rank,onClick})=>{
-  const [hovered,setHovered]=useState(false);
-  const img=anime.images?.jpg?.large_image_url||anime.images?.jpg?.image_url;
-  return(
-    <div onClick={()=>onClick(anime)}
+const NovelCard = ({novel, rank, onClick}) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div onClick={()=>onClick(novel)}
       onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}
       style={{position:"relative",borderRadius:16,overflow:"hidden",cursor:"pointer",
         aspectRatio:"2/3",background:"#0f172a",
         transform:hovered?"translateY(-8px) scale(1.03)":"translateY(0) scale(1)",
         transition:"all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
-        boxShadow:hovered?"0 24px 60px rgba(239,68,68,0.25),0 8px 20px rgba(0,0,0,0.5)":"0 4px 16px rgba(0,0,0,0.4)"}}>
+        boxShadow:hovered?"0 24px 60px rgba(139,92,246,0.3),0 8px 20px rgba(0,0,0,0.5)":"0 4px 16px rgba(0,0,0,0.4)"}}>
       <RankBadge rank={rank}/>
-      {anime.status&&(
-        <div style={{position:"absolute",top:10,right:10,zIndex:3,
-          background:anime.status==="Currently Airing"?"rgba(34,197,94,0.9)":"rgba(0,0,0,0.7)",
-          backdropFilter:"blur(4px)",color:"#fff",fontSize:8,fontWeight:700,
-          letterSpacing:1,padding:"3px 7px",borderRadius:20,textTransform:"uppercase",
-          display:"flex",alignItems:"center",gap:4}}>
-          {anime.status==="Currently Airing"&&(
-            <span style={{width:5,height:5,borderRadius:"50%",background:"#fff",
-              animation:"pulse 1.5s infinite",display:"inline-block"}}/>
-          )}
-          {anime.status==="Currently Airing"?"LIVE":anime.status==="Not yet aired"?"SOON":"DONE"}
-        </div>
-      )}
-      {img&&<img src={img} alt={anime.title} style={{position:"absolute",inset:0,
-        width:"100%",height:"100%",objectFit:"cover",
-        transform:hovered?"scale(1.1)":"scale(1)",transition:"transform 0.5s ease"}}/>}
+      <div style={{position:"absolute",top:10,right:10,zIndex:3,
+        background:novel.status==="Complete"?"rgba(34,197,94,0.9)":"rgba(139,92,246,0.85)",
+        color:"#fff",fontSize:8,fontWeight:700,letterSpacing:1,
+        padding:"3px 7px",borderRadius:20,textTransform:"uppercase",
+        display:"flex",alignItems:"center",gap:4}}>
+        {novel.status==="Ongoing"&&<span style={{width:5,height:5,borderRadius:"50%",background:"#fff",animation:"pulse 1.5s infinite",display:"inline-block"}}/>}
+        {novel.status==="Complete"?"COMPLETE":"ONGOING"}
+      </div>
+      {novel.image
+        ? <img src={novel.image} alt={novel.title} style={{position:"absolute",inset:0,
+            width:"100%",height:"100%",objectFit:"cover",
+            transform:hovered?"scale(1.1)":"scale(1)",transition:"transform 0.5s ease"}}/>
+        : <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#1e1b4b,#0f172a)",
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:48}}>📖</div>
+      }
       <div style={{position:"absolute",inset:0,
         background:hovered
           ?"linear-gradient(to top,rgba(0,0,0,0.98) 45%,rgba(0,0,0,0.2) 100%)"
-          :"linear-gradient(to top,rgba(0,0,0,0.88) 30%,transparent 65%)",
+          :"linear-gradient(to top,rgba(0,0,0,0.9) 35%,transparent 65%)",
         transition:"background 0.3s ease"}}/>
       <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 12px 12px"}}>
-        {anime.genres?.length>0&&(
-          <div style={{display:"inline-block",background:"#EF4444",color:"#fff",
+        {novel.genres?.[0]&&(
+          <div style={{display:"inline-block",background:"#8B5CF6",color:"#fff",
             fontSize:8,fontWeight:700,letterSpacing:1.5,
             padding:"2px 7px",borderRadius:4,marginBottom:5,textTransform:"uppercase"}}>
-            {anime.genres[0].name}
+            {novel.genres[0]}
           </div>
         )}
-        <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:15,color:"#fff",
+        <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:14,color:"#fff",
           lineHeight:1.2,marginBottom:5,
           display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
-          {anime.title}
+          {novel.title}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <Stars score={anime.score||0}/>
-          <span style={{color:"#FBBF24",fontSize:11,fontWeight:700}}>
-            {anime.score?anime.score.toFixed(1):"N/A"}
-          </span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {novel.rating&&<span style={{color:"#FBBF24",fontSize:12,fontWeight:700}}>★ {novel.rating.toFixed(1)}</span>}
+          {novel.readers&&<span style={{color:"#94A3B8",fontSize:10}}>{parseInt(novel.readers).toLocaleString()} readers</span>}
         </div>
-        {hovered&&anime.synopsis&&(
+        {hovered&&novel.desc&&(
           <div style={{marginTop:8,fontSize:10,color:"#cbd5e1",lineHeight:1.5,
-            display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden",
-            animation:"fadeUp 0.2s ease"}}>
-            {anime.synopsis.replace(/\[Written by MAL Rewrite\]/g,"").trim()}
+            display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
+            {novel.desc.slice(0,120)}...
           </div>
         )}
       </div>
@@ -141,19 +135,17 @@ const AnimeCard=({anime,rank,onClick})=>{
   );
 };
 
-const Modal=({anime,onClose})=>{
-  const [userRating,setUserRating]=useState(0);
-  const [hoverStar,setHoverStar]=useState(0);
-  const [submitted,setSubmitted]=useState(false);
+const Modal = ({novel, onClose}) => {
+  const [userRating, setUserRating] = useState(0);
+  const [hoverStar, setHoverStar]   = useState(0);
+  const [submitted, setSubmitted]   = useState(false);
   useEffect(()=>{
     document.body.style.overflow="hidden";
     const h=e=>e.key==="Escape"&&onClose();
     window.addEventListener("keydown",h);
     return()=>{document.body.style.overflow="";window.removeEventListener("keydown",h);};
   },[]);
-  const img=anime.images?.jpg?.large_image_url||anime.images?.jpg?.image_url;
-  const synopsis=anime.synopsis?.replace(/\[Written by MAL Rewrite\]/g,"").trim()||"No synopsis available.";
-  return(
+  return (
     <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:1000,
       display:"flex",alignItems:"center",justifyContent:"center",
       background:"rgba(0,0,0,0.88)",backdropFilter:"blur(14px)",
@@ -162,7 +154,7 @@ const Modal=({anime,onClose})=>{
         background:"linear-gradient(145deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%)",
         borderRadius:24,overflow:"hidden",maxWidth:820,width:"100%",
         maxHeight:"90vh",overflowY:"auto",
-        border:"1px solid rgba(255,255,255,0.08)",
+        border:"1px solid rgba(139,92,246,0.2)",
         boxShadow:"0 40px 100px rgba(0,0,0,0.9)",
         animation:"slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1)",position:"relative"}}>
         <button onClick={onClose} style={{position:"absolute",top:14,right:14,zIndex:10,
@@ -170,62 +162,52 @@ const Modal=({anime,onClose})=>{
           width:34,height:34,borderRadius:"50%",cursor:"pointer",fontSize:20,
           display:"flex",alignItems:"center",justifyContent:"center"}}>x</button>
         <div style={{display:"flex",flexWrap:"wrap"}}>
-          <div style={{width:200,flexShrink:0,position:"relative",minHeight:300}}>
-            {img&&<img src={img} alt={anime.title} style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0}}/>}
+          <div style={{width:180,flexShrink:0,position:"relative",minHeight:280}}>
+            {novel.image
+              ?<img src={novel.image} alt={novel.title} style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0}}/>
+              :<div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,#1e1b4b,#0f172a)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:64}}>📖</div>
+            }
             <div style={{position:"absolute",inset:0,background:"linear-gradient(to right,transparent 50%,#0f172a 100%)"}}/>
           </div>
-          <div style={{flex:1,minWidth:280,padding:"28px 24px 24px"}}>
+          <div style={{flex:1,minWidth:260,padding:"28px 24px 24px"}}>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-              {anime.genres?.slice(0,4).map(g=>(
-                <span key={g.mal_id} style={{background:"rgba(239,68,68,0.15)",
-                  border:"1px solid rgba(239,68,68,0.3)",color:"#FCA5A5",
-                  fontSize:10,padding:"2px 9px",borderRadius:20}}>{g.name}</span>
+              {novel.genres?.slice(0,4).map((g,i)=>(
+                <span key={i} style={{background:"rgba(139,92,246,0.15)",
+                  border:"1px solid rgba(139,92,246,0.3)",color:"#C4B5FD",
+                  fontSize:10,padding:"2px 9px",borderRadius:20}}>{g}</span>
               ))}
+              <span style={{
+                background:novel.status==="Complete"?"rgba(34,197,94,0.15)":"rgba(139,92,246,0.1)",
+                border:`1px solid ${novel.status==="Complete"?"rgba(34,197,94,0.3)":"rgba(139,92,246,0.2)"}`,
+                color:novel.status==="Complete"?"#86EFAC":"#A78BFA",
+                fontSize:10,padding:"2px 9px",borderRadius:20}}>{novel.status}</span>
             </div>
-            <h2 style={{fontFamily:"'Bebas Neue',cursive",fontSize:32,color:"#fff",lineHeight:1.1,marginBottom:4}}>
-              {anime.title}
+            <h2 style={{fontFamily:"'Bebas Neue',cursive",fontSize:28,color:"#fff",lineHeight:1.1,marginBottom:16}}>
+              {novel.title}
             </h2>
-            {anime.title_english&&anime.title_english!==anime.title&&(
-              <div style={{color:"#64748B",fontSize:12,marginBottom:12}}>{anime.title_english}</div>
-            )}
             <div style={{display:"flex",gap:20,marginBottom:16,flexWrap:"wrap"}}>
               {[
-                {label:"SCORE",     value:anime.score       ?`${anime.score} *`    :"N/A"},
-                {label:"RANK",      value:anime.rank        ?`#${anime.rank}`      :"--"},
-                {label:"POPULARITY",value:anime.popularity  ?`#${anime.popularity}`:"--"},
-                {label:"EPISODES",  value:anime.episodes    ||"?"},
-                {label:"YEAR",      value:anime.year        ||"?"},
+                {label:"RATING",   value: novel.rating   ? `${novel.rating.toFixed(1)} ★` : "N/A"},
+                {label:"VOTES",    value: novel.votes    ? novel.votes.toLocaleString()    : "—"},
+                {label:"READERS",  value: novel.readers  ? parseInt(novel.readers).toLocaleString() : "—"},
+                {label:"CHAPTERS", value: novel.chapters || "?"},
               ].map(({label,value})=>(
                 <div key={label} style={{textAlign:"center"}}>
-                  <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:22,color:"#EF4444",lineHeight:1}}>{value}</div>
+                  <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:20,color:"#8B5CF6",lineHeight:1}}>{value}</div>
                   <div style={{color:"#64748B",fontSize:9,letterSpacing:1.5,marginTop:2}}>{label}</div>
                 </div>
               ))}
             </div>
             <p style={{color:"#CBD5E1",fontSize:13,lineHeight:1.75,marginBottom:18}}>
-              {synopsis.length>350?synopsis.slice(0,350)+"...":synopsis}
+              {novel.desc?.length>400?novel.desc.slice(0,400)+"...":novel.desc||"No description available."}
             </p>
-            <div style={{display:"flex",gap:24,marginBottom:18,flexWrap:"wrap"}}>
-              {anime.studios?.length>0&&(
-                <div>
-                  <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:3}}>STUDIO</div>
-                  <div style={{color:"#94A3B8",fontSize:12}}>{anime.studios.map(s=>s.name).join(", ")}</div>
-                </div>
-              )}
-              {anime.source&&(
-                <div>
-                  <div style={{color:"#475569",fontSize:10,letterSpacing:1.5,marginBottom:3}}>SOURCE</div>
-                  <div style={{color:"#94A3B8",fontSize:12}}>{anime.source}</div>
-                </div>
-              )}
-            </div>
-            {anime.url&&(
-              <a href={anime.url} target="_blank" rel="noreferrer" style={{
+            {novel.link&&(
+              <a href={novel.link} target="_blank" rel="noreferrer" style={{
                 display:"inline-flex",alignItems:"center",gap:6,
-                background:"rgba(59,130,246,0.15)",border:"1px solid rgba(59,130,246,0.3)",
-                color:"#93C5FD",padding:"6px 14px",borderRadius:8,
+                background:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.3)",
+                color:"#C4B5FD",padding:"6px 14px",borderRadius:8,
                 fontSize:12,textDecoration:"none",marginBottom:18}}>
-                View on MyAnimeList
+                View on NovelUpdates
               </a>
             )}
             <div style={{background:"rgba(255,255,255,0.04)",borderRadius:12,padding:14,
@@ -241,17 +223,17 @@ const Modal=({anime,onClose})=>{
                         onMouseEnter={()=>setHoverStar(n)} onMouseLeave={()=>setHoverStar(0)}
                         onClick={()=>setUserRating(n)}
                         style={{width:30,height:30,borderRadius:7,border:"none",cursor:"pointer",
-                          background:n<=(hoverStar||userRating)?"#EF4444":"rgba(255,255,255,0.07)",
+                          background:n<=(hoverStar||userRating)?"#8B5CF6":"rgba(255,255,255,0.07)",
                           color:"#fff",fontSize:11,fontWeight:700,
                           transform:n<=(hoverStar||userRating)?"scale(1.15)":"scale(1)",
                           transition:"all 0.15s ease"}}>{n}</button>
                     ))}
                   </div>
                   <button onClick={()=>userRating>0&&setSubmitted(true)} style={{
-                    background:userRating>0?"#EF4444":"rgba(255,255,255,0.08)",
+                    background:userRating>0?"#8B5CF6":"rgba(255,255,255,0.08)",
                     color:"#fff",border:"none",borderRadius:8,
                     padding:"7px 18px",cursor:userRating>0?"pointer":"default",
-                    fontSize:12,fontWeight:600}}>Submit Rating</button>
+                    fontSize:12,fontWeight:600}}>Submit</button>
                 </div>
               )}
             </div>
@@ -262,114 +244,76 @@ const Modal=({anime,onClose})=>{
   );
 };
 
-function App(){
-  const [animeList,setAnimeList]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState(null);
-  const [selected,setSelected]=useState(null);
-  const [searchInput,setSearchInput]=useState("");
-  const [search,setSearch]=useState("");
-  const [activeFilter,setActiveFilter]=useState("airing");
-  const [activeGenre,setActiveGenre]=useState("all");
-  const [page,setPage]=useState(1);
-  const [hasMore,setHasMore]=useState(true);
-  const [loadingMore,setLoadingMore]=useState(false);
-  const [totalCount,setTotalCount]=useState(0);
-  const debounceRef=useRef(null);
+function App() {
+  const [novels, setNovels]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [selected, setSelected]   = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch]       = useState("");
+  const [activeSort, setActiveSort]   = useState("latest");
+  const [activeGenre, setActiveGenre] = useState("all");
+  const [page, setPage]           = useState(1);
+  const [hasMore, setHasMore]     = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const debounceRef = useRef(null);
 
-  // Plain function — takes all params explicitly so stale closure is impossible
-  async function doFetch(p,reset,s,f,g){
-    try{
-      reset?setLoading(true):setLoadingMore(true);
+  async function doFetch(p, reset, s, sort, genre) {
+    try {
+      reset ? setLoading(true) : setLoadingMore(true);
       setError(null);
-      const limit=24;
-      let url="";
-      if(s.trim()){
-        url=`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(s)}&limit=${limit}&page=${p}&sfw=true`;
-        if(g!=="all") url+=`&genres=${g}`;
-      } else if(g!=="all"){
-        url=`https://api.jikan.moe/v4/anime?genres=${g}&order_by=score&sort=desc&limit=${limit}&page=${p}&sfw=true`;
-      } else {
-        url=`https://api.jikan.moe/v4/top/anime?filter=${f}&limit=${limit}&page=${p}`;
-      }
-      const res=await fetch(url);
-      if(!res.ok) throw new Error(`API error ${res.status}`);
-      const json=await res.json();
-      const items=json.data||[];
-      setAnimeList(prev=>reset?items:[...prev,...items]);
-      setHasMore(json.pagination?.has_next_page??false);
-      setTotalCount(json.pagination?.items?.total??items.length);
+      let url = `${API_BASE}/api/novels?page=${p}&sort=${sort}`;
+      if (s) url += `&search=${encodeURIComponent(s)}`;
+      else if (genre !== "all") url += `&genre=${genre}`;
+
+      const res  = await fetch(url);
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const json = await res.json();
+      setNovels(prev => reset ? json.novels : [...prev, ...json.novels]);
+      setHasMore(json.hasMore);
       setPage(p);
-    }catch(err){
+    } catch(err) {
       setError(err.message);
-    }finally{
+    } finally {
       setLoading(false);
       setLoadingMore(false);
     }
   }
 
-  // Trigger fresh fetch whenever filter/genre/search changes
-  useEffect(()=>{
-    doFetch(1,true,search,activeFilter,activeGenre);
-  },[activeFilter,activeGenre,search]);
+  useEffect(()=>{ doFetch(1,true,search,activeSort,activeGenre); },[search,activeSort,activeGenre]);
 
-  const handleFilterClick=(fid)=>{
-    setActiveFilter(fid);
-    setActiveGenre("all");
-    setSearchInput("");
-    setSearch("");
-  };
-
-  const handleGenreClick=(gid)=>{
-    setActiveGenre(gid);
-    setSearchInput("");
-    setSearch("");
-  };
-
-  const handleSearchChange=val=>{
+  const handleSortClick = s => { setActiveSort(s); setActiveGenre("all"); setSearchInput(""); setSearch(""); };
+  const handleGenreClick = g => { setActiveGenre(g); setSearchInput(""); setSearch(""); };
+  const handleSearchChange = val => {
     setSearchInput(val);
     clearTimeout(debounceRef.current);
-    debounceRef.current=setTimeout(()=>{
-      setActiveFilter("airing");
-      setActiveGenre("all");
-      setSearch(val);
-    },500);
+    debounceRef.current = setTimeout(()=>setSearch(val), 500);
   };
 
-  const currentFilterLabel=search
-    ?`RESULTS FOR "${search.toUpperCase()}"`
-    :activeGenre!=="all"
-      ?(GENRES.find(g=>g.id===activeGenre)?.label.toUpperCase()+" ANIME")
-      :(FILTERS.find(f=>f.id===activeFilter)?.label.replace(/[\u{1F7E0}\u{1F7E1}\u{1F525}\u2764\uFE0F]/gu,"").trim().toUpperCase()+" ANIME");
+  return (
+    <div style={{minHeight:"100vh",background:"#0a0a0f",color:"#fff",fontFamily:"'Outfit',sans-serif"}}>
 
-  return(
-    <div style={{minHeight:"100vh",background:"#060912",color:"#fff",fontFamily:"'Outfit',sans-serif"}}>
-
-      {/* ── Header ── */}
+      {/* Header */}
       <header style={{position:"sticky",top:0,zIndex:100,
-        background:"rgba(6,9,18,0.92)",backdropFilter:"blur(20px)",
-        borderBottom:"1px solid rgba(255,255,255,0.06)",padding:"0 24px"}}>
+        background:"rgba(10,10,15,0.92)",backdropFilter:"blur(20px)",
+        borderBottom:"1px solid rgba(139,92,246,0.15)",padding:"0 24px"}}>
         <div style={{maxWidth:1400,margin:"0 auto",display:"flex",alignItems:"center",
           gap:20,minHeight:62,flexWrap:"wrap",paddingTop:8,paddingBottom:8}}>
-
-          {/* Logo */}
           <div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
-            <div style={{width:34,height:34,background:"#EF4444",borderRadius:9,
+            <div style={{width:34,height:34,background:"#8B5CF6",borderRadius:9,
               display:"flex",alignItems:"center",justifyContent:"center",
-              fontFamily:"'Bebas Neue',cursive",fontSize:18,color:"#fff"}}>AT</div>
+              fontFamily:"'Bebas Neue',cursive",fontSize:18,color:"#fff"}}>NT</div>
             <span style={{fontFamily:"'Bebas Neue',cursive",fontSize:22,letterSpacing:2}}>
-              ANIME<span style={{color:"#EF4444"}}>TREND</span>
+              NOVEL<span style={{color:"#8B5CF6"}}>TREND</span>
             </span>
           </div>
-
-          {/* Search */}
           <div style={{flex:1,maxWidth:480,position:"relative"}}>
             <svg style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",opacity:0.35}}
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input value={searchInput} onChange={e=>handleSearchChange(e.target.value)}
-              placeholder="Search any anime..."
+              placeholder="Search Japanese novels..."
               style={{width:"100%",background:"rgba(255,255,255,0.06)",
                 border:"1px solid rgba(255,255,255,0.09)",
                 borderRadius:11,padding:"9px 36px",color:"#fff",fontSize:13,outline:"none"}}/>
@@ -379,50 +323,48 @@ function App(){
                   background:"none",border:"none",color:"#64748B",cursor:"pointer",fontSize:16}}>x</button>
             )}
           </div>
-
-          {/* Filter tabs — always visible */}
-          <div style={{display:"flex",gap:2,background:"rgba(255,255,255,0.04)",
-            borderRadius:10,padding:3,flexWrap:"wrap"}}>
-            {FILTERS.map(f=>(
-              <button key={f.id} onClick={()=>handleFilterClick(f.id)} style={{
-                background:activeFilter===f.id&&activeGenre==="all"&&!search?"#EF4444":"transparent",
+          <div style={{display:"flex",gap:2,background:"rgba(255,255,255,0.04)",borderRadius:10,padding:3,flexWrap:"wrap"}}>
+            {SORTS.map(s=>(
+              <button key={s.id} onClick={()=>handleSortClick(s.id)} style={{
+                background:activeSort===s.id&&!search&&activeGenre==="all"?"#8B5CF6":"transparent",
                 border:"none",
-                color:activeFilter===f.id&&activeGenre==="all"&&!search?"#fff":"#64748B",
+                color:activeSort===s.id&&!search&&activeGenre==="all"?"#fff":"#64748B",
                 padding:"6px 11px",borderRadius:8,cursor:"pointer",
                 fontSize:11,fontWeight:600,whiteSpace:"nowrap",transition:"all 0.2s"}}>
-                {f.label}
+                {s.label}
               </button>
             ))}
           </div>
         </div>
       </header>
 
-      {/* ── Hero ── */}
+      {/* Hero */}
       <div style={{position:"relative",overflow:"hidden",
-        background:"linear-gradient(160deg,#0f0c29,#1a0533,#060912)",
+        background:"linear-gradient(160deg,#0f0c29,#1a0533,#0a0a0f)",
         padding:"56px 24px 44px",textAlign:"center"}}>
         <div style={{position:"absolute",top:-80,left:"50%",transform:"translateX(-50%)",
           width:700,height:280,
-          background:"radial-gradient(ellipse,rgba(239,68,68,0.12) 0%,transparent 70%)",
+          background:"radial-gradient(ellipse,rgba(139,92,246,0.15) 0%,transparent 70%)",
           pointerEvents:"none"}}/>
         <div style={{fontFamily:"'Bebas Neue',cursive",
           fontSize:"clamp(28px,5vw,64px)",lineHeight:1,letterSpacing:3,marginBottom:10}}>
-          {currentFilterLabel}
+          {search?`RESULTS FOR "${search.toUpperCase()}"`
+           :activeGenre!=="all"?(GENRES.find(g=>g.id===activeGenre)?.label+" NOVELS").toUpperCase()
+           :"JAPANESE NOVEL RANKINGS"}
         </div>
         <div style={{color:"#64748B",fontSize:14}}>
-          Live data from{" "}<span style={{color:"#EF4444"}}>MyAnimeList</span>{" "}via Jikan API
-          {totalCount>0&&!loading&&<span> · {totalCount.toLocaleString()} titles found</span>}
+          Scraped from <span style={{color:"#8B5CF6"}}>NovelUpdates.com</span> · Japanese novels only
         </div>
       </div>
 
-      {/* ── Genre pills ── */}
+      {/* Genre pills */}
       <div style={{background:"rgba(255,255,255,0.02)",
         borderBottom:"1px solid rgba(255,255,255,0.05)",padding:"14px 24px"}}>
         <div style={{maxWidth:1400,margin:"0 auto",display:"flex",gap:8,flexWrap:"wrap"}}>
           {GENRES.map(g=>(
             <button key={g.id} onClick={()=>handleGenreClick(g.id)} style={{
-              background:activeGenre===g.id?"#EF4444":"rgba(255,255,255,0.05)",
-              border:activeGenre===g.id?"1px solid #EF4444":"1px solid rgba(255,255,255,0.08)",
+              background:activeGenre===g.id?"#8B5CF6":"rgba(255,255,255,0.05)",
+              border:activeGenre===g.id?"1px solid #8B5CF6":"1px solid rgba(255,255,255,0.08)",
               color:activeGenre===g.id?"#fff":"#94A3B8",
               padding:"5px 15px",borderRadius:20,cursor:"pointer",
               fontSize:12,fontWeight:500,transition:"all 0.2s"}}>
@@ -432,17 +374,19 @@ function App(){
         </div>
       </div>
 
-      {/* ── Grid ── */}
+      {/* Grid */}
       <main style={{maxWidth:1400,margin:"0 auto",padding:"32px 24px"}}>
-
         {error&&(
-          <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",
-            borderRadius:12,padding:"20px 24px",textAlign:"center",marginBottom:24}}>
-            <div style={{fontSize:28,marginBottom:8}}>Warning</div>
-            <div style={{color:"#FCA5A5",fontWeight:600}}>Failed to load data</div>
-            <div style={{color:"#64748B",fontSize:13,marginTop:4}}>{error}</div>
-            <button onClick={()=>doFetch(1,true,search,activeFilter,activeGenre)}
-              style={{marginTop:12,background:"#EF4444",border:"none",color:"#fff",
+          <div style={{background:"rgba(139,92,246,0.1)",border:"1px solid rgba(139,92,246,0.3)",
+            borderRadius:12,padding:"24px",textAlign:"center",marginBottom:24}}>
+            <div style={{color:"#C4B5FD",fontWeight:600,marginBottom:8}}>Failed to load data</div>
+            <div style={{color:"#64748B",fontSize:13,marginBottom:16}}>{error}</div>
+            <div style={{color:"#64748B",fontSize:12,marginBottom:16}}>
+              Make sure your Render backend is running at<br/>
+              <code style={{color:"#8B5CF6"}}>{API_BASE}</code>
+            </div>
+            <button onClick={()=>doFetch(1,true,search,activeSort,activeGenre)}
+              style={{background:"#8B5CF6",border:"none",color:"#fff",
                 padding:"8px 20px",borderRadius:8,cursor:"pointer",fontSize:13}}>Retry</button>
           </div>
         )}
@@ -453,53 +397,53 @@ function App(){
           </div>
         )}
 
-        {!loading&&!error&&animeList.length>0&&(
+        {!loading&&!error&&novels.length>0&&(
           <>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:18}}>
-              {animeList.map((anime,i)=>(
-                <AnimeCard key={`${anime.mal_id}-${i}`} anime={anime} rank={i+1} onClick={setSelected}/>
+              {novels.map((novel,i)=>(
+                <NovelCard key={`${novel.slug||i}`} novel={novel} rank={i+1} onClick={setSelected}/>
               ))}
             </div>
             {hasMore&&(
               <div style={{textAlign:"center",marginTop:40}}>
-                <button onClick={()=>doFetch(page+1,false,search,activeFilter,activeGenre)}
-                  disabled={loadingMore} style={{
-                  background:"transparent",border:"1px solid rgba(239,68,68,0.4)",
-                  color:"#EF4444",padding:"12px 36px",borderRadius:12,
-                  cursor:loadingMore?"default":"pointer",fontSize:14,fontWeight:600,
-                  display:"inline-flex",alignItems:"center",gap:10}}>
+                <button onClick={()=>doFetch(page+1,false,search,activeSort,activeGenre)}
+                  disabled={loadingMore}
+                  style={{background:"transparent",border:"1px solid rgba(139,92,246,0.4)",
+                    color:"#8B5CF6",padding:"12px 36px",borderRadius:12,
+                    cursor:loadingMore?"default":"pointer",fontSize:14,fontWeight:600,
+                    display:"inline-flex",alignItems:"center",gap:10}}>
                   {loadingMore?(
                     <>
-                      <span style={{width:14,height:14,border:"2px solid #EF4444",
+                      <span style={{width:14,height:14,border:"2px solid #8B5CF6",
                         borderTopColor:"transparent",borderRadius:"50%",
                         animation:"spin 0.7s linear infinite",display:"inline-block"}}/>
                       Loading...
                     </>
-                  ):"Load More Anime"}
+                  ):"Load More Novels"}
                 </button>
               </div>
             )}
           </>
         )}
 
-        {!loading&&!error&&animeList.length===0&&(
+        {!loading&&!error&&novels.length===0&&(
           <div style={{textAlign:"center",padding:"80px 0",color:"#4B5563"}}>
-            <div style={{fontSize:52,marginBottom:16}}>Search</div>
-            <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:30}}>No anime found</div>
-            <div style={{fontSize:14,marginTop:8}}>Try a different search or filter</div>
+            <div style={{fontSize:52,marginBottom:16}}>📖</div>
+            <div style={{fontFamily:"'Bebas Neue',cursive",fontSize:30}}>No novels found</div>
+            <div style={{fontSize:14,marginTop:8}}>Try a different filter</div>
           </div>
         )}
       </main>
 
       <footer style={{borderTop:"1px solid rgba(255,255,255,0.05)",padding:"20px 24px",
         textAlign:"center",color:"#374151",fontSize:12}}>
-        <span style={{fontFamily:"'Bebas Neue',cursive",color:"#EF4444",fontSize:14,letterSpacing:2}}>
-          ANIMETREND
+        <span style={{fontFamily:"'Bebas Neue',cursive",color:"#8B5CF6",fontSize:14,letterSpacing:2}}>
+          NOVELTREND
         </span>
-        {" - Powered by Jikan API (MyAnimeList) - "}{new Date().getFullYear()}
+        {" - Data from NovelUpdates.com - "}{new Date().getFullYear()}
       </footer>
 
-      {selected&&<Modal anime={selected} onClose={()=>setSelected(null)}/>}
+      {selected&&<Modal novel={selected} onClose={()=>setSelected(null)}/>}
     </div>
   );
 }
