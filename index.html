@@ -1,0 +1,106 @@
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/* ============================================================
+   SUPABASE CONFIG
+   ============================================================ */
+const SUPABASE_URL = "https://zragvkqsslfyarjbjmmz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyYWd2a3Fzc2xmeWFyamJqbW16Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjYzMzY4NCwiZXhwIjoyMDg4MjA5Njg0fQ.V2VYm1pzKLbylTkHS4nTX8T6dMqpRdENpMWLydC_jmE";
+const SUPABASE_TABLE = "ln_series_ranking";
+
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  }
+);
+
+let DATA = [];
+
+/* ============================================================
+   LOAD DATA FROM SUPABASE
+   ============================================================ */
+async function loadDataFromSupabase() {
+  const rowsEl = document.getElementById("rows");
+  const emptyEl = document.getElementById("empty");
+
+  if (rowsEl) {
+    rowsEl.innerHTML = `
+      <tr>
+        <td colspan="9" style="padding:32px;text-align:center;color:#8892aa">
+          Đang tải dữ liệu từ Supabase...
+        </td>
+      </tr>
+    `;
+  }
+
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .select("*")
+    .order("ln_score", { ascending: false })
+    .order("max_release_at", { ascending: false });
+
+  if (error) {
+    console.error("Supabase load error:", error);
+
+    if (rowsEl) rowsEl.innerHTML = "";
+    if (emptyEl) {
+      emptyEl.hidden = false;
+      emptyEl.textContent =
+        "Không tải được dữ liệu từ Supabase. Kiểm tra anon key, RLS policy, table name hoặc GitHub console.";
+    }
+
+    return;
+  }
+
+  DATA = (data || []).map((row, index) => ({
+    Rank: index + 1,
+
+    "Series Title": row.series_title,
+    "Series ID": row.series_id,
+    "Series Code": row.series_code,
+
+    "Number of Volumes": Number(row.number_of_volumes ?? 0),
+    "Average Price": Number(row.average_price ?? 0),
+    "Max Release At": row.max_release_at,
+    "Average View Count": Number(row.average_view_count ?? 0),
+
+    Publisher: row.publisher,
+    "Original Volumes": Number(row.original_volumes ?? 0),
+    "Original Status": row.original_status,
+
+    Evalution: row.evalution,
+    "Evaluation Basis": row.evaluation_basis,
+    "LN Score": Number(row.ln_score ?? 0),
+
+    "Trạng thái": row.trang_thai,
+    "Khả năng drop (Drop %)": Number(row.drop_percent ?? 0),
+    "Drop % Basis": row.drop_basis,
+
+    "Average Gap Months": row.average_gap_months,
+    "Months Since Last Release": row.months_since_last_release,
+    "Completion Ratio": row.completion_ratio,
+    "Publisher Activity": row.publisher_activity,
+    "Publisher Releases Last 24M": row.publisher_releases_last_24m,
+
+    "Score Components": row.score_components,
+    "Drop Components": row.drop_components,
+
+    "Cover URL": row.cover_url,
+    "Cover Source Title": row.cover_source_title,
+  }));
+
+  initFilters();
+  render();
+}
+
+/* ============================================================
+   START
+   ============================================================ */
+document.addEventListener("DOMContentLoaded", loadDataFromSupabase);
+</script>
